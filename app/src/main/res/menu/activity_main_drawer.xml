@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_homr"
+            android:icon="@drawable/ic_home"
+            android:title="Dashboard" />
+        <item
+            android:id="@+id/nav_search"
+            android:icon="@drawable/ic_settings"
+            android:title="Search Records" />
+        <item
+            android:id="@+id/nav_camera"
+            android:icon="@drawable/ic_menu_camera"
+            android:title="Animal List &amp; Pedigree" />
+        <item
+            android:id="@+id/nav_gallery"
+            android:icon="@drawable/ic_menu_gallery"
+            android:title="Milk Production" />
+        <item
+            android:id="@+id/nav_slideshow"
+            android:icon="@drawable/ic_menu_slideshow"
+            android:title="Health &amp; Treatments" />
+        <item
+            android:id="@+id/nav_manage"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Breeding &amp; Heat" />
+        <item
+            android:id="@+id/nav_feed"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Feed Management" />
+        <item
+            android:id="@+id/nav_vaccination"
+            android:icon="@drawable/ic_menu_slideshow"
+            android:title="Vaccination Schedule" />
+        <item
+            android:id="@+id/nav_inventory"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Inventory &amp; Supplies" />
+        <item
+            android:id="@+id/nav_income"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Income &amp; Sales" />
+        <item
+            android:id="@+id/nav_expenses"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Expenses" />
+        <item
+            android:id="@+id/nav_fin_dash"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Financial Dashboard" />
+    </group>
+
+    <item android:title="System &amp; Data">
+        <menu>
+            <item
+                android:id="@+id/nav_send"
+                android:icon="@drawable/ic_menu_send"
+                android:title="Reports &amp; Export" />
+            <item
+                android:id="@+id/nav_audit"
+                android:icon="@drawable/ic_settings"
+                android:title="Audit Logs" />
+            <item
+                android:id="@+id/nav_farm_sync"
+                android:icon="@drawable/ic_menu_share"
+                android:title="Farm Sync &amp; Backup" />
+            <item
+                android:id="@+id/nav_settings"
+                android:icon="@drawable/ic_settings"
+                android:title="Settings" />
+        </menu>
+    </item>
+
+</menu>

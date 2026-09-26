@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">MFarm</string>
+
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+
+    <string name="action_settings">Settings</string>
+    <string name="title_activity_register">Registration</string>
+    <string name="title_activity_milk_production">Milk Production</string>
+    <string name="title_activity_registration2">Animal Registration</string>
+    <string name="title_activity_photo_intent">Animal Photo</string>
+
+    <string name="btnIntend">Save</string>
+    <string name="btnIntendS">Take (small) Picture</string>
+    <string name="btnIntendV">Take Video</string>
+    <string name="cannot">Cannot</string>
+    <string name="album_name">CameraSample</string>
+    <string name="title_activity_medication">Animal Health</string>
+    <string name="title_activity_illness">Illness Occurence</string>
+    <string name="title_activity_treatment">TreatmentActivity</string>
+</resources>

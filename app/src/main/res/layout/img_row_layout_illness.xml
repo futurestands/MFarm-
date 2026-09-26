@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+	android:background="@drawable/roundedcorners"
+    android:layout_height="wrap_content" >
+
+     <Button
+		 android:id="@+id/btnAddTreatment"
+		 android:layout_width="80dp"
+		 android:layout_alignParentRight="true"
+		 android:layout_centerVertical="true"
+		 android:layout_height="wrap_content"
+		 android:padding="5dp"
+		 android:textSize="8dp"
+		 android:gravity="center"
+		 android:text="Add Treatment" />
+     
+
+    <TextView
+        android:id="@+id/name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#4C4C4C"
+        android:textSize="20sp"
+		android:text="name"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/dist"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+		android:text="Bla bla"
+        android:layout_marginTop="2dip"
+        android:layout_below="@id/name"
+        android:textColor="#0078AE"
+         android:textSize="16sp"
+        android:textStyle="italic" />
+
+</RelativeLayout>

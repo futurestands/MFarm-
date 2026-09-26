@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:theme="@style/AppTheme.AppBarOverlay">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="?attr/colorPrimary"
+            app:popupTheme="@style/AppTheme.PopupOverlay" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <ImageView
+                android:id="@+id/ivAnimalPhoto"
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                android:scaleType="centerCrop"
+                android:layout_marginBottom="16dp"
+                android:src="@drawable/animalicon"
+                android:background="@android:color/darker_gray" />
+
+            <TextView
+                android:id="@+id/tvAnimalName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Animal Name"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="@color/colorPrimary" />
+
+            <TableLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:stretchColumns="1">
+
+                <TableRow android:padding="4dp">
+                    <TextView android:text="Breed:" android:textStyle="bold" android:paddingEnd="8dp"/>
+                    <TextView android:id="@+id/tvBreed" android:text="---"/>
+                </TableRow>
+
+                <TableRow android:padding="4dp">
+                    <TextView android:text="Gender:" android:textStyle="bold" android:paddingEnd="8dp"/>
+                    <TextView android:id="@+id/tvGender" android:text="---"/>
+                </TableRow>
+
+                <TableRow android:padding="4dp">
+                    <TextView android:text="DOB:" android:textStyle="bold" android:paddingEnd="8dp"/>
+                    <TextView android:id="@+id/tvDob" android:text="---"/>
+                </TableRow>
+
+                <TableRow android:padding="4dp">
+                    <TextView android:text="Lifecycle Status:" android:textStyle="bold" android:paddingEnd="8dp"/>
+                    <TextView android:id="@+id/tvLifecycleStatus" android:text="Active"/>
+                </TableRow>
+
+                <TableRow android:padding="4dp">
+                    <TextView android:text="Repro Status:" android:textStyle="bold" android:paddingEnd="8dp"/>
+                    <TextView android:id="@+id/tvReproStatus" android:text="Open"/>
+                </TableRow>
+
+                <TableRow android:padding="4dp">
+                    <TextView android:text="Lactation Status:" android:textStyle="bold" android:paddingEnd="8dp"/>
+                    <TextView android:id="@+id/tvLactationStatus" android:text="Dry"/>
+                </TableRow>
+
+                <TableRow android:padding="4dp">
+                    <TextView android:text="Health Status:" android:textStyle="bold" android:paddingEnd="8dp"/>
+                    <TextView android:id="@+id/tvHealthStatus" android:text="Healthy"/>
+                </TableRow>
+
+                <TableRow android:padding="4dp">
+                    <TextView android:text="Body Conf:" android:textStyle="bold" android:paddingEnd="8dp"/>
+                    <TextView android:id="@+id/tvBodyConf" android:text="---"/>
+                </TableRow>
+
+                <TableRow android:padding="4dp">
+                    <TextView android:text="Dam ID:" android:textStyle="bold" android:paddingEnd="8dp"/>
+                    <TextView android:id="@+id/tvDam" android:text="---"/>
+                </TableRow>
+
+                <TableRow android:padding="4dp">
+                    <TextView android:text="Sire ID:" android:textStyle="bold" android:paddingEnd="8dp"/>
+                    <TextView android:id="@+id/tvSire" android:text="---"/>
+                </TableRow>
+
+            </TableLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="Animal History Summary"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/colorPrimary"/>
+
+            <TextView
+                android:id="@+id/tvHistorySummary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Loading history..."
+                android:textSize="14sp"
+                android:lineSpacingExtra="4dp"/>
+
+            <Button
+                android:id="@+id/btnDelete"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="Delete Record"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:textColor="@android:color/holo_red_dark"/>
+
+        </LinearLayout>
+    </ScrollView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

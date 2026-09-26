@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp"
+    app:cardBackgroundColor="#FFFFFF">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvDiseaseName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🐄 East Coast Fever (ECF)"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#2E7D32" />
+
+            <TextView
+                android:id="@+id/tvUrgencyBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="HIGH RISK"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:background="#D32F2F"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvSymptoms"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Symptoms: High fever, swollen lymph nodes, difficulty breathing, frothy nasal discharge."
+            android:textSize="12sp"
+            android:textColor="#333333"
+            android:layout_marginTop="4dp" />
+
+        <TextView
+            android:id="@+id/tvTreatmentAction"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Action: Treat early with Buparvaquone. Tick control (dipping/spraying)."
+            android:textSize="11sp"
+            android:textColor="#555555"
+            android:layout_marginTop="4dp" />
+
+        <Button
+            android:id="@+id/btnLogThisIllness"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:text="+ Log Illness for Cow"
+            android:textSize="12sp"
+            android:textColor="@color/colorPrimary" />
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>
