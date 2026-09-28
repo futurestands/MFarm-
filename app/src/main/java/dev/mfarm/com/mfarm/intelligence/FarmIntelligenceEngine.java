@@ -31,7 +31,6 @@ public class FarmIntelligenceEngine {
 
         Calendar calToday = Calendar.getInstance();
         Date todayDate = truncateTime(calToday.getTime());
-        String todayStr = DATE_FORMAT.format(todayDate);
 
         // Rule I: Check active animals count
         int activeAnimalCount = 0;
@@ -198,7 +197,7 @@ public class FarmIntelligenceEngine {
                                         animalId, animalName, "HEALTH"
                                 ));
                                 healthCount++;
-                                if (healthCount >= 5) break; // Cap after collecting full qualifying set
+                                if (healthCount >= 5) break; // Cap display after identifying qualifying records
                             }
                         }
                     } catch (ParseException ignored) {}
@@ -276,7 +275,7 @@ public class FarmIntelligenceEngine {
         } catch (Exception ignored) {}
     }
 
-    private static boolean isSameMonth(String dateStr, int targetMonth, int targetYear) {
+    public static boolean isSameMonth(String dateStr, int targetMonth, int targetYear) {
         if (dateStr == null || dateStr.trim().isEmpty()) return false;
         try {
             Date d = DATE_FORMAT.parse(dateStr.trim());
@@ -394,9 +393,12 @@ public class FarmIntelligenceEngine {
 
         // Attention: Low stock items
         try {
-            Cursor c = db.rawQuery("SELECT item_name FROM inventory WHERE quantity <= min_quantity", null);
+            Cursor c = db.rawQuery("SELECT item_name, category FROM inventory WHERE quantity <= min_quantity", null);
             while (c.moveToNext()) {
-                attention.add(c.getString(0) + " stock is low");
+                String itemName = c.getString(0);
+                String category = c.getString(1);
+                boolean isFeed = category != null && category.toLowerCase().contains("feed");
+                attention.add(isFeed ? itemName + " feed stock is low" : itemName + " stock is low");
             }
             c.close();
         } catch (Exception ignored) {}
@@ -456,7 +458,7 @@ public class FarmIntelligenceEngine {
             c.close();
         } catch (Exception ignored) {}
 
-        // 3. Coming up: Upcoming vaccinations and upcoming calvings
+        // 3. Coming up: Upcoming vaccinations and upcoming calvings (Future / today dates only)
         try {
             Cursor c = db.rawQuery(
                     "SELECT a.name, v.vaccine_name, v.scheduled_date " +
@@ -528,12 +530,12 @@ public class FarmIntelligenceEngine {
             c.close();
         } catch (Exception ignored) {}
 
-        // Completed vaccinations scheduled or logged TODAY
+        // Completed vaccinations scheduled for TODAY
         try {
             Cursor c = db.rawQuery("SELECT COUNT(*) FROM vaccinations WHERE status = 'Completed' AND scheduled_date = ?", new String[]{todayStr});
             if (c.moveToFirst() && c.getInt(0) > 0) {
                 int count = c.getInt(0);
-                changes.add("+ " + count + (count == 1 ? " vaccination completed today" : " vaccinations completed today"));
+                changes.add("+ " + count + (count == 1 ? " vaccination scheduled for today is marked completed" : " vaccinations scheduled for today are marked completed"));
             }
             c.close();
         } catch (Exception ignored) {}
@@ -586,6 +588,6 @@ public class FarmIntelligenceEngine {
         Date start = truncateTime(startDate);
         Date end = truncateTime(endDate);
         if (start == null || end == null) return 0;
-        return (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000L);
+        return Math.round((double) (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000L));
     }
 }

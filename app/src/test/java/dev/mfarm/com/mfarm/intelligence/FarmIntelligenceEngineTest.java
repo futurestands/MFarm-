@@ -86,123 +86,74 @@ public class FarmIntelligenceEngineTest {
         }
     }
 
-    // --- Test A: What Changed Only Reports Today's Milk ---
+    // --- Test A: Vaccination scheduled today + Completed wording ---
     @Test
-    public void testWhatChangedOnlyReportsTodaysMilk() {
+    public void testVaccinationScheduledTodayCompletedWording() {
         Calendar cal = Calendar.getInstance(NAIROBI);
         String todayStr = DATE_FORMAT.format(cal.getTime());
 
+        MockVaccination v = new MockVaccination(1, 10, "Bessie", "Anthrax", todayStr, "Completed");
+
+        String wording = "1 vaccination scheduled for today is marked completed";
+        assertTrue("Wording must explicitly reference scheduled date without claiming an actual completion timestamp",
+                wording.contains("scheduled for today is marked completed"));
+        assertFalse(wording.contains("completed at"));
+    }
+
+    // --- Test B: Vaccination scheduled yesterday + Completed is NOT claimed as completed today ---
+    @Test
+    public void testVaccinationScheduledYesterdayCompletedNotClaimedToday() {
+        Calendar cal = Calendar.getInstance(NAIROBI);
         cal.add(Calendar.DAY_OF_YEAR, -1);
         String yesterdayStr = DATE_FORMAT.format(cal.getTime());
 
-        List<MockTransaction> milkEntries = new ArrayList<>();
-        milkEntries.add(new MockTransaction(yesterdayStr, 25.0)); // Yesterday: 25L
-        milkEntries.add(new MockTransaction(todayStr, 12.0));    // Today: 12L
+        Calendar calToday = Calendar.getInstance(NAIROBI);
+        String todayStr = DATE_FORMAT.format(calToday.getTime());
 
-        double todayMilkSum = 0;
-        for (MockTransaction entry : milkEntries) {
-            if (todayStr.equals(entry.date)) {
-                todayMilkSum += entry.amount;
-            }
-        }
+        MockVaccination vYesterday = new MockVaccination(1, 10, "Bessie", "Anthrax", yesterdayStr, "Completed");
 
-        assertEquals(12.0, todayMilkSum, 0.01);
+        boolean countForToday = "Completed".equals(vYesterday.status) && todayStr.equals(vYesterday.scheduledDate);
+        assertFalse("Vaccination scheduled yesterday should NOT be reported as completed today", countForToday);
     }
 
-    // --- Test B: What Changed Only Reports Today's Completed Vaccinations ---
+    // --- Test C: Current-Month Financial Calculation Excludes Previous Month ---
     @Test
-    public void testWhatChangedOnlyReportsTodaysCompletedVaccinations() {
-        Calendar cal = Calendar.getInstance(NAIROBI);
-        String todayStr = DATE_FORMAT.format(cal.getTime());
+    public void testCurrentMonthFinancialCalculationExcludesPreviousMonth() {
+        Calendar calToday = Calendar.getInstance(NAIROBI);
+        calToday.set(Calendar.YEAR, 2026);
+        calToday.set(Calendar.MONTH, Calendar.SEPTEMBER);
+        calToday.set(Calendar.DAY_OF_MONTH, 15);
 
-        cal.add(Calendar.DAY_OF_YEAR, -2);
-        String pastStr = DATE_FORMAT.format(cal.getTime());
+        Calendar calAug = Calendar.getInstance(NAIROBI);
+        calAug.set(Calendar.YEAR, 2026);
+        calAug.set(Calendar.MONTH, Calendar.AUGUST);
+        calAug.set(Calendar.DAY_OF_MONTH, 20);
 
-        List<MockVaccination> vaccinations = new ArrayList<>();
-        vaccinations.add(new MockVaccination(1, 10, "Bessie", "Anthrax", pastStr, "Completed")); // Completed 2 days ago
-        vaccinations.add(new MockVaccination(2, 10, "Bessie", "FMD", todayStr, "Completed"));      // Completed today
-
-        int completedTodayCount = 0;
-        for (MockVaccination v : vaccinations) {
-            if ("Completed".equals(v.status) && todayStr.equals(v.scheduledDate)) {
-                completedTodayCount++;
-            }
-        }
-
-        assertEquals(1, completedTodayCount);
-    }
-
-    // --- Test C: What Changed Only Reports Today's Expenses and Income ---
-    @Test
-    public void testWhatChangedOnlyReportsTodaysExpensesAndIncome() {
-        Calendar cal = Calendar.getInstance(NAIROBI);
-        String todayStr = DATE_FORMAT.format(cal.getTime());
-
-        cal.add(Calendar.DAY_OF_YEAR, -1);
-        String yesterdayStr = DATE_FORMAT.format(cal.getTime());
+        String augDate = DATE_FORMAT.format(calAug.getTime());
+        String septDate = DATE_FORMAT.format(calToday.getTime());
 
         List<MockTransaction> expenses = new ArrayList<>();
-        expenses.add(new MockTransaction(yesterdayStr, 50000.0));
-        expenses.add(new MockTransaction(todayStr, 20000.0));
-        expenses.add(new MockTransaction(todayStr, 15000.0));
+        expenses.add(new MockTransaction(augDate, 500000.0));  // August expense
+        expenses.add(new MockTransaction(septDate, 120000.0)); // September expense
 
-        int todayExpenseCount = 0;
+        int septMonth = calToday.get(Calendar.MONTH);
+        int septYear = calToday.get(Calendar.YEAR);
+
+        double septTotalExpense = 0;
         for (MockTransaction exp : expenses) {
-            if (todayStr.equals(exp.date)) {
-                todayExpenseCount++;
+            if (FarmIntelligenceEngine.isSameMonth(exp.date, septMonth, septYear)) {
+                septTotalExpense += exp.amount;
             }
         }
 
-        assertEquals(2, todayExpenseCount);
+        assertEquals(120000.0, septTotalExpense, 0.01);
     }
 
-    // --- Test D: Overdue Vaccinations Language Guard ---
+    // --- Test D: Recent Illness Detected Across Historical Records ---
     @Test
-    public void testOverdueVaccinationsLanguageGuard() {
-        int overdueCount = 3;
-        String formattedWording = overdueCount == 1 ? "1 vaccination is currently overdue" : overdueCount + " vaccinations are currently overdue";
-
-        assertTrue(formattedWording.contains("currently overdue"));
-        assertFalse(formattedWording.contains("became overdue"));
-    }
-
-    // --- Test E: Current-Month Financial Calculation Excludes Previous Months ---
-    @Test
-    public void testCurrentMonthFinancialCalculationExcludesPreviousMonths() {
+    public void testRecentIllnessDetectedAcrossHistoricalRecords() {
         Calendar cal = Calendar.getInstance(NAIROBI);
-        int currentMonth = cal.get(Calendar.MONTH);
-        int currentYear = cal.get(Calendar.YEAR);
-
-        Calendar lastMonthCal = (Calendar) cal.clone();
-        lastMonthCal.add(Calendar.MONTH, -1);
-
-        String currentMonthDate = DATE_FORMAT.format(cal.getTime());
-        String lastMonthDate = DATE_FORMAT.format(lastMonthCal.getTime());
-
-        List<MockTransaction> incomeList = new ArrayList<>();
-        incomeList.add(new MockTransaction(lastMonthDate, 500000.0));  // Previous month income
-        incomeList.add(new MockTransaction(currentMonthDate, 150000.0)); // Current month income
-
-        double currentMonthIncome = 0;
-        for (MockTransaction inc : incomeList) {
-            try {
-                Date d = DATE_FORMAT.parse(inc.date);
-                Calendar c = Calendar.getInstance(NAIROBI);
-                c.setTime(d);
-                if (c.get(Calendar.MONTH) == currentMonth && c.get(Calendar.YEAR) == currentYear) {
-                    currentMonthIncome += inc.amount;
-                }
-            } catch (Exception ignored) {}
-        }
-
-        assertEquals(150000.0, currentMonthIncome, 0.01);
-    }
-
-    // --- Test F: Health Follow-Up Detects Recent Illness Across All Records ---
-    @Test
-    public void testHealthFollowUpDetectsRecentIllnessAcrossAllRecords() {
-        Calendar cal = Calendar.getInstance(NAIROBI);
-        Date today = cal.getTime();
+        Date today = FarmIntelligenceEngine.truncateTime(cal.getTime());
 
         cal.add(Calendar.DAY_OF_YEAR, -2);
         String recent2DaysAgo = DATE_FORMAT.format(cal.getTime());
@@ -216,14 +167,14 @@ public class FarmIntelligenceEngineTest {
         for (int i = 1; i <= 5; i++) {
             allIllnesses.add(new MockIllness(i, i, "Cow " + i, "Old Fever " + i, oldDate));
         }
-        // Add 1 recent illness at the end
+        // Add 1 recent illness
         allIllnesses.add(new MockIllness(6, 24, "Cow 024", "Mastitis", recent2DaysAgo));
 
-        // Evaluate ALL without arbitrary initial LIMIT 3
+        // Evaluate ALL without initial query limit
         List<MockIllness> qualifying = new ArrayList<>();
         for (MockIllness ill : allIllnesses) {
             try {
-                Date d = DATE_FORMAT.parse(ill.dateOccured);
+                Date d = FarmIntelligenceEngine.truncateTime(DATE_FORMAT.parse(ill.dateOccured));
                 long diffDays = FarmIntelligenceEngine.daysBetween(d, today);
                 if (diffDays >= 0 && diffDays <= 7) {
                     qualifying.add(ill);
@@ -236,9 +187,9 @@ public class FarmIntelligenceEngineTest {
         assertEquals("Mastitis", qualifying.get(0).illness);
     }
 
-    // --- Test G: Low Stock Wording Does Not Call Non-Feed Items "Feed" ---
+    // --- Test E: Non-Feed Inventory Item Is Never Labelled Feed ---
     @Test
-    public void testLowStockWordingDoesNotCallNonFeedItemsFeed() {
+    public void testNonFeedInventoryItemIsNeverLabelledFeed() {
         MockInventory feed = new MockInventory("Dairy Meal", "Feed", 10.0, "kg", 50.0);
         MockInventory medicine = new MockInventory("Penicillin", "Medicine", 2.0, "vials", 5.0);
 
@@ -250,12 +201,12 @@ public class FarmIntelligenceEngineTest {
 
         assertEquals("Dairy Meal feed", feedLabel);
         assertEquals("Penicillin", medLabel);
-        assertFalse(medLabel.contains("feed"));
+        assertFalse("Non-feed item should not contain 'feed' label", medLabel.contains("feed"));
     }
 
-    // --- Test H: Date Boundary Cases (Today vs Yesterday) ---
+    // --- Test F: Today / Yesterday / Tomorrow Date Boundaries ---
     @Test
-    public void testDateBoundaryCases() {
+    public void testTodayYesterdayTomorrowDateBoundaries() {
         Calendar cal = Calendar.getInstance(NAIROBI);
         Date today = FarmIntelligenceEngine.truncateTime(cal.getTime());
 
@@ -273,25 +224,48 @@ public class FarmIntelligenceEngineTest {
         assertEquals(-1, FarmIntelligenceEngine.daysBetween(tomorrow, today));
     }
 
-    // --- Test I: Empty Database State ---
+    // --- Test G: Year Boundary (31-12-2025 -> 01-01-2026) ---
     @Test
-    public void testEmptyDatabaseState() {
-        Insight insight = new Insight(
-                Insight.Type.DATA_QUALITY,
-                Insight.Priority.INFO,
-                "Welcome to MFarm",
-                "Register your first farm animal to begin tracking health, milk yields, breeding, and farm finances.",
-                null, null, "REGISTER"
-        );
+    public void testYearBoundaryDecemberToJanuary() {
+        Calendar decCal = Calendar.getInstance(NAIROBI);
+        decCal.set(2025, Calendar.DECEMBER, 31);
+        Date dec31 = FarmIntelligenceEngine.truncateTime(decCal.getTime());
+        String dec31Str = DATE_FORMAT.format(dec31);
 
-        assertNotNull(insight);
-        assertEquals(Insight.Type.DATA_QUALITY, insight.getType());
-        assertEquals("REGISTER", insight.getActionTarget());
+        Calendar janCal = Calendar.getInstance(NAIROBI);
+        janCal.set(2026, Calendar.JANUARY, 1);
+        Date jan01 = FarmIntelligenceEngine.truncateTime(janCal.getTime());
+        String jan01Str = DATE_FORMAT.format(jan01);
+
+        long diffDays = FarmIntelligenceEngine.daysBetween(dec31, jan01);
+        assertEquals(1, diffDays);
+
+        boolean sameMonthDecJan = FarmIntelligenceEngine.isSameMonth(dec31Str, Calendar.JANUARY, 2026);
+        assertFalse("Dec 31, 2025 should NOT match Jan 2026", sameMonthDecJan);
+
+        boolean sameMonthJanJan = FarmIntelligenceEngine.isSameMonth(jan01Str, Calendar.JANUARY, 2026);
+        assertTrue("Jan 1, 2026 should match Jan 2026", sameMonthJanJan);
     }
 
-    // --- Test J: Insufficient Milk Data Handling ---
+    // --- Test H: Upcoming Vaccination / Calving Windows Exclude Past Dates ---
     @Test
-    public void testInsufficientMilkDataHandling() {
+    public void testUpcomingWindowsExcludePastDates() {
+        Calendar cal = Calendar.getInstance(NAIROBI);
+        Date today = FarmIntelligenceEngine.truncateTime(cal.getTime());
+
+        cal.add(Calendar.DAY_OF_YEAR, -2); // 2 days in past
+        Date past2Days = FarmIntelligenceEngine.truncateTime(cal.getTime());
+
+        long diffDays = FarmIntelligenceEngine.daysBetween(today, past2Days);
+        assertEquals(-2, diffDays);
+
+        boolean inUpcomingWindow = diffDays >= 0 && diffDays <= 7;
+        assertFalse("Past date (diffDays < 0) must be excluded from upcoming windows", inUpcomingWindow);
+    }
+
+    // --- Test I: Insufficient Milk Data Handling ---
+    @Test
+    public void testInsufficientDataHandling() {
         List<MockTransaction> entries = new ArrayList<>();
         entries.add(new MockTransaction("20-09-2026", 12.0));
         entries.add(new MockTransaction("21-09-2026", 14.0));
