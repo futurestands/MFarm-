@@ -85,17 +85,33 @@ public class FinancialDashboardFragment extends Fragment {
         double totalIncome = 0;
         double totalExpense = 0;
 
-        Cursor c1 = MainActivity.database.rawQuery("SELECT SUM(amount) FROM income", null);
-        if (c1.moveToFirst()) {
-            totalIncome = c1.getDouble(0);
-        }
-        c1.close();
+        java.util.Calendar calToday = java.util.Calendar.getInstance();
+        int targetMonth = calToday.get(java.util.Calendar.MONTH);
+        int targetYear = calToday.get(java.util.Calendar.YEAR);
 
-        Cursor c2 = MainActivity.database.rawQuery("SELECT SUM(amount) FROM expenses", null);
-        if (c2.moveToFirst()) {
-            totalExpense = c2.getDouble(0);
+        Cursor c1 = MainActivity.database.rawQuery("SELECT date, amount FROM income", null);
+        if (c1 != null) {
+            while (c1.moveToNext()) {
+                String dStr = c1.getString(0);
+                double amt = c1.getDouble(1);
+                if (dev.mfarm.com.mfarm.intelligence.FarmIntelligenceEngine.isSameMonth(dStr, targetMonth, targetYear)) {
+                    totalIncome += amt;
+                }
+            }
+            c1.close();
         }
-        c2.close();
+
+        Cursor c2 = MainActivity.database.rawQuery("SELECT date, amount FROM expenses", null);
+        if (c2 != null) {
+            while (c2.moveToNext()) {
+                String dStr = c2.getString(0);
+                double amt = c2.getDouble(1);
+                if (dev.mfarm.com.mfarm.intelligence.FarmIntelligenceEngine.isSameMonth(dStr, targetMonth, targetYear)) {
+                    totalExpense += amt;
+                }
+            }
+            c2.close();
+        }
 
         double net = totalIncome - totalExpense;
 

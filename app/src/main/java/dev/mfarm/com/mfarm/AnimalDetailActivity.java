@@ -1,5 +1,6 @@
 package dev.mfarm.com.mfarm;
 
+import android.content.ContentValues;
 import android.content.DialogInterface;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -180,6 +181,19 @@ public class AnimalDetailActivity extends AppCompatActivity {
                                 cursor.close();
                             }
                             MainActivity.database.delete("vaccinations", "animal_id=?", new String[]{animalId});
+                            MainActivity.database.delete("illness", "animal_id=?", new String[]{animalId});
+                            MainActivity.database.delete("milk_production", "animal_id=?", new String[]{animalId});
+                            MainActivity.database.delete("breeding_records", "animal_id=?", new String[]{animalId});
+                            MainActivity.database.delete("vet_checks", "animal_id=?", new String[]{animalId});
+
+                            ContentValues detachIncome = new ContentValues();
+                            detachIncome.putNull("related_animal_id");
+                            MainActivity.database.update("income", detachIncome, "related_animal_id=?", new String[]{animalId});
+
+                            ContentValues detachExpense = new ContentValues();
+                            detachExpense.putNull("related_animal_id");
+                            MainActivity.database.update("expenses", detachExpense, "related_animal_id=?", new String[]{animalId});
+
                             MainActivity.database.delete("animas", "id=?", new String[]{animalId});
                             MainActivity.database.setTransactionSuccessful();
                             DatabaseHelper.logAudit(MainActivity.database, "DELETE_ANIMAL", "ANIMALS", Long.parseLong(animalId), "Deleted animal record ID: " + animalId);

@@ -9,11 +9,27 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
 public final class FarmSnapshot {
     private static final String TAG = "FarmSnapshot";
-    private static final String[] LINK_COLUMNS = {"animal_id", "item_id"};
+    private static final String[] LINK_COLUMNS = {
+            "animal_id", "item_id", "feed_id", "dam_id", "sire_id",
+            "related_animal_id", "offspring_id", "bull_id"
+    };
+
+    public static class ApplyResult {
+        public final int appliedCount;
+        public final int failedCount;
+        public final List<String> errors;
+
+        public ApplyResult(int appliedCount, int failedCount, List<String> errors) {
+            this.appliedCount = appliedCount;
+            this.failedCount = failedCount;
+            this.errors = errors != null ? errors : new ArrayList<String>();
+        }
+    }
 
     private FarmSnapshot() {}
 
@@ -34,21 +50,41 @@ public final class FarmSnapshot {
     }
 
     public static int apply(SQLiteDatabase db, JSONObject snapshot) throws Exception {
+        ApplyResult res = applyWithDetails(db, snapshot);
+        return res.appliedCount;
+    }
+
+    public static ApplyResult applyWithDetails(SQLiteDatabase db, JSONObject snapshot) throws Exception {
         if (snapshot == null) {
-            return 0;
+            return new ApplyResult(0, 0, new ArrayList<String>());
         }
         JSONArray records = snapshot.optJSONArray("records");
         if (records == null) {
-            return 0;
+            return new ApplyResult(0, 0, new ArrayList<String>());
         }
         int applied = 0;
+        int failed = 0;
+        List<String> errors = new ArrayList<>();
+
         FarmSyncSchema.setApplying(db, true);
         db.beginTransaction();
         try {
             List<JSONObject> ordered = orderForApply(records);
             for (int i = 0; i < ordered.size(); i++) {
-                if (applyRecord(db, ordered.get(i))) {
-                    applied++;
+                JSONObject rec = ordered.get(i);
+                try {
+                    if (applyRecord(db, rec)) {
+                        applied++;
+                    } else {
+                        failed++;
+                        String table = rec.optString("table", "unknown");
+                        String uuid = rec.optString("uuid", "unknown");
+                        errors.add("Skipped record in table '" + table + "' (uuid=" + uuid + ")");
+                    }
+                } catch (Exception e) {
+                    failed++;
+                    String table = rec.optString("table", "unknown");
+                    errors.add("Error applying record in table '" + table + "': " + e.getMessage());
                 }
             }
             db.setTransactionSuccessful();
@@ -56,21 +92,25 @@ public final class FarmSnapshot {
             db.endTransaction();
             FarmSyncSchema.setApplying(db, false);
         }
-        return applied;
+        return new ApplyResult(applied, failed, errors);
     }
 
     private static List<JSONObject> orderForApply(JSONArray records) throws Exception {
         List<JSONObject> first = new ArrayList<>();
+        List<JSONObject> second = new ArrayList<>();
         List<JSONObject> rest = new ArrayList<>();
         for (int i = 0; i < records.length(); i++) {
             JSONObject rec = records.getJSONObject(i);
             String table = rec.optString("table");
-            if ("animas".equals(table) || "inventory".equals(table)) {
+            if ("animas".equals(table) || "inventory".equals(table) || "feed_types".equals(table) || "farm_profile".equals(table)) {
                 first.add(rec);
+            } else if ("breeding_records".equals(table) || "calving_records".equals(table)) {
+                second.add(rec);
             } else {
                 rest.add(rec);
             }
         }
+        first.addAll(second);
         first.addAll(rest);
         return first;
     }
@@ -140,10 +180,16 @@ public final class FarmSnapshot {
             if (isLinkColumn(col)) {
                 int idx = cursor.getColumnIndex(col);
                 if (idx >= 0 && !cursor.isNull(idx)) {
-                    String targetTable = "item_id".equals(col) ? "inventory" : "animas";
-                    String uuid = uuidForLocalId(db, targetTable, cursor.getInt(idx));
-                    if (uuid != null) {
-                        links.put(col, uuid);
+                    String targetTable = targetTableForCol(col);
+                    String rawVal = cursor.getString(idx);
+                    if (rawVal != null && !rawVal.trim().isEmpty()) {
+                        try {
+                            int localId = Integer.parseInt(rawVal.trim());
+                            String uuid = uuidForLocalId(db, targetTable, localId);
+                            if (uuid != null) {
+                                links.put(col, uuid);
+                            }
+                        } catch (NumberFormatException ignored) {}
                     }
                 }
                 continue;
@@ -212,7 +258,7 @@ public final class FarmSnapshot {
             }
             return true;
         } catch (Exception e) {
-            Log.w(TAG, "Skip record", e);
+            Log.w(TAG, "Skip record for " + rec.optString("table"), e);
             return false;
         }
     }
@@ -220,7 +266,7 @@ public final class FarmSnapshot {
     private static ContentValues fieldsToValues(SQLiteDatabase db, String table, JSONObject fields, JSONObject links)
             throws Exception {
         ContentValues values = new ContentValues();
-        java.util.HashSet<String> columns = tableColumns(db, table);
+        HashSet<String> columns = tableColumns(db, table);
         if (fields != null) {
             JSONArray names = fields.names();
             if (names != null) {
@@ -257,13 +303,15 @@ public final class FarmSnapshot {
                         continue;
                     }
                     String uuid = links.optString(col, "");
-                    String target = "item_id".equals(col) ? "inventory" : "animas";
+                    String target = targetTableForCol(col);
                     Integer id = localIdForUuid(db, uuid);
                     if (id == null) {
                         id = localIdForUuidAndTable(db, uuid, target);
                     }
                     if (id != null) {
                         values.put(col, id);
+                    } else {
+                        values.putNull(col);
                     }
                 }
             }
@@ -271,8 +319,8 @@ public final class FarmSnapshot {
         return values;
     }
 
-    private static java.util.HashSet<String> tableColumns(SQLiteDatabase db, String table) {
-        java.util.HashSet<String> cols = new java.util.HashSet<>();
+    private static HashSet<String> tableColumns(SQLiteDatabase db, String table) {
+        HashSet<String> cols = new HashSet<>();
         Cursor c = null;
         try {
             c = db.rawQuery("PRAGMA table_info(" + table + ")", null);
@@ -308,6 +356,12 @@ public final class FarmSnapshot {
             }
         }
         return false;
+    }
+
+    private static String targetTableForCol(String col) {
+        if ("item_id".equals(col)) return "inventory";
+        if ("feed_id".equals(col)) return "feed_types";
+        return "animas";
     }
 
     private static String uuidForLocalId(SQLiteDatabase db, String table, int localId) {

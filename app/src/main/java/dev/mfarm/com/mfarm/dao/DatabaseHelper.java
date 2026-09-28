@@ -34,6 +34,20 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 		return instance;
 	}
 
+	public static synchronized SQLiteDatabase getDatabase(Context context) {
+		if (database != null && database.isOpen()) {
+			return database;
+		}
+		try {
+			DatabaseHelper helper = getHelper(context.getApplicationContext());
+			database = helper.openDataBase();
+			return database;
+		} catch (Exception e) {
+			Log.e("DatabaseHelper", "Failed to open database", e);
+			return null;
+		}
+	}
+
 	public SQLiteDatabase getDb() {
 		return database;
 	}

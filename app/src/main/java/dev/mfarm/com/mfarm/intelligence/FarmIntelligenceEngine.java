@@ -2,6 +2,7 @@ package dev.mfarm.com.mfarm.intelligence;
 
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.util.Log;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -16,11 +17,27 @@ import java.util.Set;
 
 public class FarmIntelligenceEngine {
 
+    private static final String TAG = "FarmIntelligenceEngine";
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("dd-MM-yyyy", Locale.US);
     private static final SimpleDateFormat MONTH_NAME_FORMAT = new SimpleDateFormat("MMMM yyyy", Locale.US);
 
     static {
         DATE_FORMAT.setLenient(false);
+    }
+
+    private static synchronized Date parseDate(String dateStr) throws ParseException {
+        if (dateStr == null || dateStr.trim().isEmpty()) return null;
+        return DATE_FORMAT.parse(dateStr.trim());
+    }
+
+    private static synchronized String formatDate(Date date) {
+        if (date == null) return "";
+        return DATE_FORMAT.format(date);
+    }
+
+    private static synchronized String formatMonthName(Date date) {
+        if (date == null) return "";
+        return MONTH_NAME_FORMAT.format(date);
     }
 
     public static List<Insight> evaluateInsights(SQLiteDatabase db) {
@@ -35,12 +52,14 @@ public class FarmIntelligenceEngine {
         // Rule I: Check active animals count
         int activeAnimalCount = 0;
         try {
-            Cursor c = db.rawQuery("SELECT COUNT(*) FROM animas WHERE lifecycle_status = 'Active'", null);
+            Cursor c = db.rawQuery("SELECT COUNT(*) FROM animas WHERE lifecycle_status = 'Active' OR lifecycle_status IS NULL", null);
             if (c.moveToFirst()) {
                 activeAnimalCount = c.getInt(0);
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error counting active animals", e);
+        }
 
         if (activeAnimalCount == 0) {
             insights.add(new Insight(
@@ -53,12 +72,12 @@ public class FarmIntelligenceEngine {
             return insights;
         }
 
-        // Rule A: Overdue Vaccination
+        // Rule A: Overdue Vaccination (Active animals only)
         try {
             Cursor c = db.rawQuery(
                     "SELECT v.id, a.name, v.vaccine_name, v.scheduled_date, a.id " +
                             "FROM vaccinations v JOIN animas a ON v.animal_id = a.id " +
-                            "WHERE v.status = 'Overdue'", null);
+                            "WHERE v.status = 'Overdue' AND (a.lifecycle_status = 'Active' OR a.lifecycle_status IS NULL)", null);
             while (c.moveToNext()) {
                 String animalName = c.getString(1);
                 String vaccineName = c.getString(2);
@@ -74,14 +93,16 @@ public class FarmIntelligenceEngine {
                 ));
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error evaluating overdue vaccinations", e);
+        }
 
-        // Rule B: Upcoming Vaccination (Next 3 Days)
+        // Rule B: Upcoming Vaccination (Next 3 Days - Active animals only)
         try {
             Cursor c = db.rawQuery(
                     "SELECT v.id, a.name, v.vaccine_name, v.scheduled_date, a.id " +
                             "FROM vaccinations v JOIN animas a ON v.animal_id = a.id " +
-                            "WHERE v.status = 'Pending'", null);
+                            "WHERE v.status = 'Pending' AND (a.lifecycle_status = 'Active' OR a.lifecycle_status IS NULL)", null);
             while (c.moveToNext()) {
                 String animalName = c.getString(1);
                 String vaccineName = c.getString(2);
@@ -90,7 +111,7 @@ public class FarmIntelligenceEngine {
 
                 if (schedDateStr != null && !schedDateStr.trim().isEmpty()) {
                     try {
-                        Date schedDate = truncateTime(DATE_FORMAT.parse(schedDateStr.trim()));
+                        Date schedDate = truncateTime(parseDate(schedDateStr.trim()));
                         if (schedDate != null) {
                             long diffDays = daysBetween(todayDate, schedDate);
                             if (diffDays >= 0 && diffDays <= 3) {
@@ -108,9 +129,11 @@ public class FarmIntelligenceEngine {
                 }
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error evaluating upcoming vaccinations", e);
+        }
 
-        // Rule C: Low Stock Warning (Accurate item labeling)
+        // Rule C: Low Stock Warning
         try {
             Cursor c = db.rawQuery("SELECT item_name, category, quantity, unit, min_quantity FROM inventory WHERE quantity <= min_quantity", null);
             while (c.moveToNext()) {
@@ -132,17 +155,19 @@ public class FarmIntelligenceEngine {
                 ));
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error evaluating inventory stock", e);
+        }
 
         // Rule D & E: Milk Production Trend
         evaluateMilkTrends(db, todayDate, insights);
 
-        // Rule F: Upcoming Calving (Next 14 Days)
+        // Rule F: Upcoming Calving (Next 14 Days - Active animals only)
         try {
             Cursor c = db.rawQuery(
                     "SELECT b.id, a.name, b.expected_birth_date, a.id " +
                             "FROM breeding_records b JOIN animas a ON b.animal_id = a.id " +
-                            "WHERE b.status = 'Pregnant'", null);
+                            "WHERE b.status = 'Pregnant' AND (a.lifecycle_status = 'Active' OR a.lifecycle_status IS NULL)", null);
             while (c.moveToNext()) {
                 String animalName = c.getString(1);
                 String expBirthStr = c.getString(2);
@@ -150,7 +175,7 @@ public class FarmIntelligenceEngine {
 
                 if (expBirthStr != null && !expBirthStr.trim().isEmpty()) {
                     try {
-                        Date expDate = truncateTime(DATE_FORMAT.parse(expBirthStr.trim()));
+                        Date expDate = truncateTime(parseDate(expBirthStr.trim()));
                         if (expDate != null) {
                             long diffDays = daysBetween(todayDate, expDate);
                             if (diffDays >= 0 && diffDays <= 14) {
@@ -168,13 +193,16 @@ public class FarmIntelligenceEngine {
                 }
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error evaluating upcoming calvings", e);
+        }
 
-        // Rule G: Recent Illness Follow-Up (Filter ALL qualifying records in last 7 days)
+        // Rule G: Recent Illness Follow-Up (Active animals only)
         try {
             Cursor c = db.rawQuery(
                     "SELECT a.id, a.name, i.illness_occured, i.date_occured, i.diagnosis " +
                             "FROM illness i JOIN animas a ON i.animal_id = a.id " +
+                            "WHERE (a.lifecycle_status = 'Active' OR a.lifecycle_status IS NULL) " +
                             "ORDER BY i.id DESC", null);
             int healthCount = 0;
             while (c.moveToNext()) {
@@ -185,7 +213,7 @@ public class FarmIntelligenceEngine {
 
                 if (dateStr != null && !dateStr.trim().isEmpty()) {
                     try {
-                        Date illnessDate = truncateTime(DATE_FORMAT.parse(dateStr.trim()));
+                        Date illnessDate = truncateTime(parseDate(dateStr.trim()));
                         if (illnessDate != null) {
                             long diffDays = daysBetween(illnessDate, todayDate);
                             if (diffDays >= 0 && diffDays <= 7) {
@@ -197,14 +225,16 @@ public class FarmIntelligenceEngine {
                                         animalId, animalName, "HEALTH"
                                 ));
                                 healthCount++;
-                                if (healthCount >= 5) break; // Cap display after identifying qualifying records
+                                if (healthCount >= 5) break;
                             }
                         }
                     } catch (ParseException ignored) {}
                 }
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error evaluating recent illnesses", e);
+        }
 
         // Rule H: Financial Attention (CURRENT MONTH ONLY)
         evaluateMonthlyFinancials(db, calToday, insights);
@@ -230,7 +260,7 @@ public class FarmIntelligenceEngine {
 
             int targetMonth = calToday.get(Calendar.MONTH);
             int targetYear = calToday.get(Calendar.YEAR);
-            String monthName = MONTH_NAME_FORMAT.format(calToday.getTime());
+            String monthName = formatMonthName(calToday.getTime());
 
             // Current month income
             Cursor cInc = db.rawQuery("SELECT date, amount FROM income", null);
@@ -272,13 +302,15 @@ public class FarmIntelligenceEngine {
                         null, null, "FINANCIAL"
                 ));
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error evaluating monthly financials", e);
+        }
     }
 
     public static boolean isSameMonth(String dateStr, int targetMonth, int targetYear) {
         if (dateStr == null || dateStr.trim().isEmpty()) return false;
         try {
-            Date d = DATE_FORMAT.parse(dateStr.trim());
+            Date d = parseDate(dateStr.trim());
             if (d == null) return false;
             Calendar cal = Calendar.getInstance();
             cal.setTime(d);
@@ -290,6 +322,14 @@ public class FarmIntelligenceEngine {
 
     private static void evaluateMilkTrends(SQLiteDatabase db, Date todayDate, List<Insight> insights) {
         try {
+            Calendar cal7DaysAgo = Calendar.getInstance();
+            cal7DaysAgo.setTime(todayDate);
+            cal7DaysAgo.add(Calendar.DAY_OF_YEAR, -7);
+
+            Calendar cal14DaysAgo = Calendar.getInstance();
+            cal14DaysAgo.setTime(todayDate);
+            cal14DaysAgo.add(Calendar.DAY_OF_YEAR, -14);
+
             double recent7DaysTotal = 0;
             double previous7DaysTotal = 0;
             Set<String> distinctMilkDays = new HashSet<>();
@@ -301,7 +341,7 @@ public class FarmIntelligenceEngine {
 
                 if (dateStr != null && !dateStr.trim().isEmpty()) {
                     try {
-                        Date d = truncateTime(DATE_FORMAT.parse(dateStr.trim()));
+                        Date d = truncateTime(parseDate(dateStr.trim()));
                         if (d != null) {
                             long diffDays = daysBetween(d, todayDate);
                             if (diffDays >= 0 && diffDays < 14) {
@@ -351,7 +391,9 @@ public class FarmIntelligenceEngine {
                     ));
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error evaluating milk trends", e);
+        }
     }
 
     public static FarmBrief generateBrief(SQLiteDatabase db) {
@@ -374,15 +416,19 @@ public class FarmIntelligenceEngine {
 
         Date today = truncateTime(cal.getTime());
 
-        // 1. Attention: Currently overdue vaccinations
+        // 1. Attention: Currently overdue vaccinations (Active animals only)
         try {
-            Cursor c = db.rawQuery("SELECT COUNT(*) FROM vaccinations WHERE status = 'Overdue'", null);
+            Cursor c = db.rawQuery(
+                    "SELECT COUNT(*) FROM vaccinations v JOIN animas a ON v.animal_id = a.id " +
+                            "WHERE v.status = 'Overdue' AND (a.lifecycle_status = 'Active' OR a.lifecycle_status IS NULL)", null);
             if (c.moveToFirst() && c.getInt(0) > 0) {
                 int count = c.getInt(0);
                 attention.add(count == 1 ? "1 vaccination is currently overdue" : count + " vaccinations are currently overdue");
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating brief overdue vaccinations", e);
+        }
 
         // Attention: Low stock items
         try {
@@ -394,17 +440,21 @@ public class FarmIntelligenceEngine {
                 attention.add(isFeed ? itemName + " feed stock is low" : itemName + " stock is low");
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating brief low stock", e);
+        }
 
         // Attention: Active sick animals
         try {
-            Cursor c = db.rawQuery("SELECT COUNT(*) FROM animas WHERE health_status = 'Sick' AND lifecycle_status = 'Active'", null);
+            Cursor c = db.rawQuery("SELECT COUNT(*) FROM animas WHERE health_status = 'Sick' AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL)", null);
             if (c.moveToFirst() && c.getInt(0) > 0) {
                 int count = c.getInt(0);
                 attention.add(count == 1 ? "1 animal is currently flagged as sick" : count + " animals are currently flagged as sick");
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating brief sick animals", e);
+        }
 
         // 2. Good news: Positive current month balance
         try {
@@ -441,22 +491,27 @@ public class FarmIntelligenceEngine {
             if (monthInc > monthExp && monthInc > 0) {
                 goodNews.add("Net balance for this month is +" + currSym + String.format(Locale.US, "%,.0f", (monthInc - monthExp)));
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating brief financial balance", e);
+        }
 
         try {
-            Cursor c = db.rawQuery("SELECT COUNT(*) FROM animas WHERE lifecycle_status = 'Active'", null);
+            Cursor c = db.rawQuery("SELECT COUNT(*) FROM animas WHERE lifecycle_status = 'Active' OR lifecycle_status IS NULL", null);
             if (c.moveToFirst() && c.getInt(0) > 0) {
                 goodNews.add(c.getInt(0) == 1 ? "1 active animal registered on farm" : c.getInt(0) + " active animals registered on farm");
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating brief active animals count", e);
+        }
 
         // 3. Coming up: Upcoming vaccinations and upcoming calvings (Future / today dates only)
         try {
             Cursor c = db.rawQuery(
                     "SELECT a.name, v.vaccine_name, v.scheduled_date " +
                             "FROM vaccinations v JOIN animas a ON v.animal_id = a.id " +
-                            "WHERE v.status = 'Pending' ORDER BY v.id DESC", null);
+                            "WHERE v.status = 'Pending' AND (a.lifecycle_status = 'Active' OR a.lifecycle_status IS NULL) " +
+                            "ORDER BY v.id DESC", null);
             while (c.moveToNext()) {
                 String animalName = c.getString(0);
                 String vaccine = c.getString(1);
@@ -464,7 +519,7 @@ public class FarmIntelligenceEngine {
 
                 if (schedStr != null && !schedStr.trim().isEmpty()) {
                     try {
-                        Date d = truncateTime(DATE_FORMAT.parse(schedStr.trim()));
+                        Date d = truncateTime(parseDate(schedStr.trim()));
                         if (d != null) {
                             long diffDays = daysBetween(today, d);
                             if (diffDays >= 0 && diffDays <= 7) {
@@ -477,20 +532,23 @@ public class FarmIntelligenceEngine {
                 }
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating brief coming up vaccinations", e);
+        }
 
         try {
             Cursor c = db.rawQuery(
                     "SELECT a.name, b.expected_birth_date " +
                             "FROM breeding_records b JOIN animas a ON b.animal_id = a.id " +
-                            "WHERE b.status = 'Pregnant' ORDER BY b.id DESC", null);
+                            "WHERE b.status = 'Pregnant' AND (a.lifecycle_status = 'Active' OR a.lifecycle_status IS NULL) " +
+                            "ORDER BY b.id DESC", null);
             while (c.moveToNext()) {
                 String animalName = c.getString(0);
                 String expStr = c.getString(1);
 
                 if (expStr != null && !expStr.trim().isEmpty()) {
                     try {
-                        Date d = truncateTime(DATE_FORMAT.parse(expStr.trim()));
+                        Date d = truncateTime(parseDate(expStr.trim()));
                         if (d != null) {
                             long diffDays = daysBetween(today, d);
                             if (diffDays >= 0 && diffDays <= 14) {
@@ -503,7 +561,9 @@ public class FarmIntelligenceEngine {
                 }
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating brief coming up calvings", e);
+        }
 
         return new FarmBrief(greeting, attention, goodNews, comingUp);
     }
@@ -514,7 +574,7 @@ public class FarmIntelligenceEngine {
             return new WhatChanged(changes);
         }
 
-        String todayStr = DATE_FORMAT.format(new Date());
+        String todayStr = formatDate(new Date());
 
         // Milk recorded TODAY
         try {
@@ -523,7 +583,9 @@ public class FarmIntelligenceEngine {
                 changes.add("+ " + String.format(Locale.US, "%.1f L", c.getDouble(0)) + " milk recorded today");
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating what changed milk", e);
+        }
 
         // Completed vaccinations scheduled for TODAY
         try {
@@ -533,7 +595,9 @@ public class FarmIntelligenceEngine {
                 changes.add("+ " + count + (count == 1 ? " vaccination scheduled for today is marked completed" : " vaccinations scheduled for today are marked completed"));
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating what changed vaccinations", e);
+        }
 
         // Currently overdue vaccinations
         try {
@@ -543,7 +607,9 @@ public class FarmIntelligenceEngine {
                 changes.add("⚠ " + count + (count == 1 ? " vaccination is currently overdue" : " vaccinations are currently overdue"));
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating what changed overdue", e);
+        }
 
         // Today's Expenses
         try {
@@ -553,7 +619,9 @@ public class FarmIntelligenceEngine {
                 changes.add("+ " + count + (count == 1 ? " expense recorded today" : " expenses recorded today"));
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating what changed expenses", e);
+        }
 
         // Today's Income
         try {
@@ -563,7 +631,9 @@ public class FarmIntelligenceEngine {
                 changes.add("+ " + count + (count == 1 ? " sale/income recorded today" : " sales/income recorded today"));
             }
             c.close();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating what changed income", e);
+        }
 
         return new WhatChanged(changes);
     }

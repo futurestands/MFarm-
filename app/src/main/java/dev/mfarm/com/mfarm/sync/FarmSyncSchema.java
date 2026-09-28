@@ -9,12 +9,18 @@ public final class FarmSyncSchema {
             "animas",
             "milk_production",
             "expenses",
+            "income",
             "vaccinations",
             "illness",
             "inventory",
             "inventory_transactions",
             "breeding_records",
-            "vet_checks"
+            "vet_checks",
+            "calving_records",
+            "feed_types",
+            "feed_consumption",
+            "farm_profile",
+            "audit_logs"
     };
 
     private static final String TAG = "FarmSyncSchema";
