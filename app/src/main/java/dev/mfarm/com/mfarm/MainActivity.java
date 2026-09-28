@@ -1,5 +1,6 @@
 package dev.mfarm.com.mfarm;
 
+import android.content.Context;
 import android.content.Intent;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
@@ -42,6 +43,12 @@ public class MainActivity extends AppCompatActivity
     public static SQLiteDatabase database;
     static DatabaseHelper dbOpenHelper;
 
+    public static SQLiteDatabase getDb(Context context) {
+        SQLiteDatabase db = DatabaseHelper.getDatabase(context);
+        database = db;
+        return db;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -49,10 +56,11 @@ public class MainActivity extends AppCompatActivity
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        dbOpenHelper = new DatabaseHelper(this, DB_NAME);
         try {
-            database = dbOpenHelper.openDataBase();
-            AlarmScheduler.reschedulePending(this);
+            database = DatabaseHelper.getDatabase(this);
+            if (database != null) {
+                AlarmScheduler.reschedulePending(this);
+            }
         } catch (Exception e) {
             android.widget.Toast.makeText(this, "Could not open farm database", android.widget.Toast.LENGTH_LONG).show();
         }

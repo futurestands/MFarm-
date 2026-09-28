@@ -199,18 +199,7 @@ public final class AlarmScheduler {
     }
 
     static SQLiteDatabase openDatabase(Context context) {
-        if (MainActivity.database != null && MainActivity.database.isOpen()) {
-            return MainActivity.database;
-        }
-        try {
-            DatabaseHelper helper = DatabaseHelper.getHelper(context.getApplicationContext());
-            SQLiteDatabase db = helper.openDataBase();
-            MainActivity.database = db;
-            return db;
-        } catch (Exception e) {
-            Log.e(TAG, "Could not open farm database for alarms", e);
-            return null;
-        }
+        return DatabaseHelper.getDatabase(context);
     }
 
     private static PendingIntent reminderPendingIntent(Context context, int vaccinationId,

@@ -2,6 +2,7 @@ package dev.mfarm.com.mfarm.fragments;
 
 import android.content.Intent;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 
 import dev.mfarm.com.mfarm.AlarmScheduler;
+import dev.mfarm.com.mfarm.dao.DatabaseHelper;
 import dev.mfarm.com.mfarm.ExpenseActivity;
 import dev.mfarm.com.mfarm.FarmSyncActivity;
 import dev.mfarm.com.mfarm.IncomeActivity;
@@ -143,11 +145,12 @@ public class DashboardFragment extends Fragment {
     }
 
     private void loadDashboardStats() {
-        if (MainActivity.database == null || !MainActivity.database.isOpen()) return;
+        SQLiteDatabase db = DatabaseHelper.getDatabase(getContext());
+        if (db == null || !db.isOpen()) return;
 
         // Farm Name
         try {
-            Cursor cProfile = MainActivity.database.rawQuery("SELECT farm_name FROM farm_profile LIMIT 1", null);
+            Cursor cProfile = db.rawQuery("SELECT farm_name FROM farm_profile LIMIT 1", null);
             if (cProfile.moveToFirst() && cProfile.getString(0) != null && !cProfile.getString(0).isEmpty()) {
                 tvFarmTitle.setText(cProfile.getString(0));
             } else {
@@ -158,7 +161,7 @@ public class DashboardFragment extends Fragment {
 
         // Total Animals
         try {
-            Cursor cAnimals = MainActivity.database.rawQuery("SELECT COUNT(*) FROM animas WHERE lifecycle_status = 'Active'", null);
+            Cursor cAnimals = db.rawQuery("SELECT COUNT(*) FROM animas WHERE lifecycle_status = 'Active'", null);
             if (cAnimals.moveToFirst()) {
                 tvStatAnimals.setText(String.valueOf(cAnimals.getInt(0)));
             }
@@ -168,7 +171,7 @@ public class DashboardFragment extends Fragment {
         // Today's Milk
         try {
             String today = new SimpleDateFormat("dd-MM-yyyy", Locale.US).format(new Date());
-            Cursor cMilk = MainActivity.database.rawQuery("SELECT SUM(litres) FROM milk_production WHERE datetime = ?", new String[]{today});
+            Cursor cMilk = db.rawQuery("SELECT SUM(litres) FROM milk_production WHERE datetime = ?", new String[]{today});
             if (cMilk.moveToFirst()) {
                 double total = cMilk.getDouble(0);
                 tvStatMilk.setText(String.format(Locale.US, "%.1f L", total));
@@ -178,7 +181,7 @@ public class DashboardFragment extends Fragment {
 
         // Low Stock Count
         try {
-            Cursor cStock = MainActivity.database.rawQuery("SELECT COUNT(*) FROM inventory WHERE quantity <= min_quantity", null);
+            Cursor cStock = db.rawQuery("SELECT COUNT(*) FROM inventory WHERE quantity <= min_quantity", null);
             if (cStock.moveToFirst()) {
                 tvStatLowStock.setText(String.valueOf(cStock.getInt(0)));
             }
@@ -187,8 +190,8 @@ public class DashboardFragment extends Fragment {
 
         // Pending Vaccinations Count
         try {
-            AlarmScheduler.updateOverdueStatus(MainActivity.database);
-            Cursor cVac = MainActivity.database.rawQuery("SELECT COUNT(*) FROM vaccinations WHERE status = 'Pending' OR status = 'Overdue'", null);
+            AlarmScheduler.updateOverdueStatus(db);
+            Cursor cVac = db.rawQuery("SELECT COUNT(*) FROM vaccinations WHERE status = 'Pending' OR status = 'Overdue'", null);
             if (cVac.moveToFirst()) {
                 tvStatVaccines.setText(String.valueOf(cVac.getInt(0)));
             }
@@ -196,20 +199,20 @@ public class DashboardFragment extends Fragment {
         } catch (Exception ignored) {}
 
         // Phase 1 Intelligence: Today's Farm Brief
-        loadFarmBrief();
+        loadFarmBrief(db);
 
         // Phase 1 Intelligence: What Changed Today
-        loadWhatChanged();
+        loadWhatChanged(db);
 
         // Phase 1 Intelligence: Farm Insights
-        loadFarmInsights();
+        loadFarmInsights(db);
     }
 
-    private void loadFarmBrief() {
-        if (layoutBriefContent == null) return;
+    private void loadFarmBrief(SQLiteDatabase db) {
+        if (layoutBriefContent == null || db == null) return;
         layoutBriefContent.removeAllViews();
 
-        FarmBrief brief = FarmIntelligenceEngine.generateBrief(MainActivity.database);
+        FarmBrief brief = FarmIntelligenceEngine.generateBrief(db);
         if (tvBriefGreeting != null) {
             tvBriefGreeting.setText(brief.getGreeting());
         }
@@ -245,11 +248,11 @@ public class DashboardFragment extends Fragment {
         }
     }
 
-    private void loadWhatChanged() {
-        if (layoutWhatChangedContent == null) return;
+    private void loadWhatChanged(SQLiteDatabase db) {
+        if (layoutWhatChangedContent == null || db == null) return;
         layoutWhatChangedContent.removeAllViews();
 
-        WhatChanged changed = FarmIntelligenceEngine.generateWhatChanged(MainActivity.database);
+        WhatChanged changed = FarmIntelligenceEngine.generateWhatChanged(db);
         if (!changed.hasChanges()) {
             TextView noChangeTv = new TextView(getActivity());
             noChangeTv.setText("No significant changes recorded today.");
@@ -274,11 +277,11 @@ public class DashboardFragment extends Fragment {
         }
     }
 
-    private void loadFarmInsights() {
-        if (layoutInsightsContent == null) return;
+    private void loadFarmInsights(SQLiteDatabase db) {
+        if (layoutInsightsContent == null || db == null) return;
         layoutInsightsContent.removeAllViews();
 
-        List<Insight> insights = FarmIntelligenceEngine.evaluateInsights(MainActivity.database);
+        List<Insight> insights = FarmIntelligenceEngine.evaluateInsights(db);
         if (insights.isEmpty()) {
             TextView emptyTv = new TextView(getActivity());
             emptyTv.setText("No farm insights available.");

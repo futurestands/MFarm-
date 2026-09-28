@@ -187,12 +187,10 @@ public final class FarmSyncManager {
     }
 
     private static SQLiteDatabase openDb(Context context) throws Exception {
-        if (MainActivity.database != null && MainActivity.database.isOpen()) {
-            return MainActivity.database;
+        SQLiteDatabase db = DatabaseHelper.getDatabase(context);
+        if (db == null) {
+            throw new Exception("Could not open farm database");
         }
-        DatabaseHelper helper = DatabaseHelper.getHelper(context.getApplicationContext());
-        SQLiteDatabase db = helper.openDataBase();
-        MainActivity.database = db;
         return db;
     }
 

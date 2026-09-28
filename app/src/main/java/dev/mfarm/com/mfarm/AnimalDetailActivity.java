@@ -3,6 +3,7 @@ package dev.mfarm.com.mfarm;
 import android.content.ContentValues;
 import android.content.DialogInterface;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
@@ -68,13 +69,20 @@ public class AnimalDetailActivity extends AppCompatActivity {
         });
     }
 
+    private SQLiteDatabase getDb() {
+        return DatabaseHelper.getDatabase(this);
+    }
+
     private void loadDetails() {
+        SQLiteDatabase db = getDb();
+        if (db == null) return;
+
         String sql = "SELECT a.*, b.name as breed_name FROM animas a " +
                      "LEFT JOIN breeds b ON a.breed_id = b.id " +
                      "WHERE a.id = ?";
-        Cursor cursor = MainActivity.database.rawQuery(sql, new String[]{animalId});
+        Cursor cursor = db.rawQuery(sql, new String[]{animalId});
 
-        if (cursor.moveToFirst()) {
+        if (cursor != null && cursor.moveToFirst()) {
             tvAnimalName.setText(cursor.getString(cursor.getColumnIndex("name")));
             tvBreed.setText(cursor.getString(cursor.getColumnIndex("breed_name")));
 
@@ -110,28 +118,31 @@ public class AnimalDetailActivity extends AppCompatActivity {
                 }
             }
         }
-        cursor.close();
+        if (cursor != null) cursor.close();
     }
 
     private void loadHistorySummary() {
+        SQLiteDatabase db = getDb();
+        if (db == null) return;
+
         StringBuilder sb = new StringBuilder();
 
         // Vaccinations
-        Cursor c1 = MainActivity.database.rawQuery("SELECT vaccine_name, scheduled_date, status FROM vaccinations WHERE animal_id = ? ORDER BY id DESC LIMIT 3", new String[]{animalId});
+        Cursor c1 = db.rawQuery("SELECT vaccine_name, scheduled_date, status FROM vaccinations WHERE animal_id = ? ORDER BY id DESC LIMIT 3", new String[]{animalId});
         sb.append("• Vaccinations:\n");
-        if (c1.moveToFirst()) {
+        if (c1 != null && c1.moveToFirst()) {
             do {
                 sb.append("   - ").append(c1.getString(0)).append(" on ").append(c1.getString(1)).append(" [").append(c1.getString(2)).append("]\n");
             } while (c1.moveToNext());
         } else {
             sb.append("   - No vaccination records.\n");
         }
-        c1.close();
+        if (c1 != null) c1.close();
 
         // Health
-        Cursor c2 = MainActivity.database.rawQuery("SELECT illness_occured, date_occured, diagnosis FROM illness WHERE animal_id = ? ORDER BY id DESC LIMIT 3", new String[]{animalId});
+        Cursor c2 = db.rawQuery("SELECT illness_occured, date_occured, diagnosis FROM illness WHERE animal_id = ? ORDER BY id DESC LIMIT 3", new String[]{animalId});
         sb.append("\n• Health Events:\n");
-        if (c2.moveToFirst()) {
+        if (c2 != null && c2.moveToFirst()) {
             do {
                 sb.append("   - ").append(c2.getString(0)).append(" on ").append(c2.getString(1));
                 if (c2.getString(2) != null && !c2.getString(2).isEmpty()) {
@@ -142,19 +153,19 @@ public class AnimalDetailActivity extends AppCompatActivity {
         } else {
             sb.append("   - No illness records.\n");
         }
-        c2.close();
+        if (c2 != null) c2.close();
 
         // Breeding
-        Cursor c3 = MainActivity.database.rawQuery("SELECT mating_date, expected_birth_date, status FROM breeding_records WHERE animal_id = ? ORDER BY id DESC LIMIT 3", new String[]{animalId});
+        Cursor c3 = db.rawQuery("SELECT mating_date, expected_birth_date, status FROM breeding_records WHERE animal_id = ? ORDER BY id DESC LIMIT 3", new String[]{animalId});
         sb.append("\n• Breeding Records:\n");
-        if (c3.moveToFirst()) {
+        if (c3 != null && c3.moveToFirst()) {
             do {
                 sb.append("   - Mated: ").append(c3.getString(0)).append(" | Expected: ").append(c3.getString(1)).append(" [").append(c3.getString(2)).append("]\n");
             } while (c3.moveToNext());
         } else {
             sb.append("   - No breeding records.\n");
         }
-        c3.close();
+        if (c3 != null) c3.close();
 
         tvHistorySummary.setText(sb.toString());
     }
@@ -166,10 +177,13 @@ public class AnimalDetailActivity extends AppCompatActivity {
                 .setPositiveButton("Delete", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        MainActivity.database.beginTransaction();
+                        SQLiteDatabase db = getDb();
+                        if (db == null) return;
+
+                        db.beginTransaction();
                         try {
                             // Find and cancel all pending vaccination alarms for this animal
-                            Cursor cursor = MainActivity.database.rawQuery(
+                            Cursor cursor = db.rawQuery(
                                     "SELECT id FROM vaccinations WHERE animal_id = ?",
                                     new String[]{animalId});
                             if (cursor != null) {
@@ -180,43 +194,44 @@ public class AnimalDetailActivity extends AppCompatActivity {
                                 }
                                 cursor.close();
                             }
-                            MainActivity.database.delete("vaccinations", "animal_id=?", new String[]{animalId});
-                            MainActivity.database.delete("illness", "animal_id=?", new String[]{animalId});
-                            MainActivity.database.delete("milk_production", "animal_id=?", new String[]{animalId});
-                            MainActivity.database.delete("breeding_records", "animal_id=?", new String[]{animalId});
-                            MainActivity.database.delete("vet_checks", "animal_id=?", new String[]{animalId});
+                            db.delete("vaccinations", "animal_id=?", new String[]{animalId});
+                            db.delete("illness", "animal_id=?", new String[]{animalId});
+                            db.delete("milk_production", "animal_id=?", new String[]{animalId});
+                            db.delete("breeding_records", "animal_id=?", new String[]{animalId});
+                            db.delete("vet_checks", "animal_id=?", new String[]{animalId});
 
                             ContentValues detachIncome = new ContentValues();
                             detachIncome.putNull("related_animal_id");
-                            MainActivity.database.update("income", detachIncome, "related_animal_id=?", new String[]{animalId});
+                            db.update("income", detachIncome, "related_animal_id=?", new String[]{animalId});
 
                             ContentValues detachExpense = new ContentValues();
                             detachExpense.putNull("related_animal_id");
-                            MainActivity.database.update("expenses", detachExpense, "related_animal_id=?", new String[]{animalId});
+                            db.update("expenses", detachExpense, "related_animal_id=?", new String[]{animalId});
 
                             ContentValues detachDam = new ContentValues();
                             detachDam.putNull("dam_id");
-                            MainActivity.database.update("animas", detachDam, "dam_id=?", new String[]{animalId});
+                            db.update("animas", detachDam, "dam_id=?", new String[]{animalId});
 
                             ContentValues detachSire = new ContentValues();
                             detachSire.putNull("sire_id");
-                            MainActivity.database.update("animas", detachSire, "sire_id=?", new String[]{animalId});
+                            db.update("animas", detachSire, "sire_id=?", new String[]{animalId});
 
                             ContentValues detachCalvingDam = new ContentValues();
                             detachCalvingDam.putNull("dam_id");
-                            MainActivity.database.update("calving_records", detachCalvingDam, "dam_id=?", new String[]{animalId});
+                            db.update("calving_records", detachCalvingDam, "dam_id=?", new String[]{animalId});
 
                             ContentValues detachCalvingSire = new ContentValues();
                             detachCalvingSire.putNull("sire_id");
-                            MainActivity.database.update("calving_records", detachCalvingSire, "sire_id=?", new String[]{animalId});
+                            db.update("calving_records", detachCalvingSire, "sire_id=?", new String[]{animalId});
 
                             ContentValues detachOffspring = new ContentValues();
                             detachOffspring.putNull("offspring_id");
-                            MainActivity.database.update("calving_records", detachOffspring, "offspring_id=?", new String[]{animalId});
+                            db.update("calving_records", detachOffspring, "offspring_id=?", new String[]{animalId});
 
-                            MainActivity.database.delete("animas", "id=?", new String[]{animalId});
-                            MainActivity.database.setTransactionSuccessful();
-                            DatabaseHelper.logAudit(MainActivity.database, "DELETE_ANIMAL", "ANIMALS", Long.parseLong(animalId), "Deleted animal record ID: " + animalId);
+                            db.delete("animas", "id=?", new String[]{animalId});
+                            db.setTransactionSuccessful();
+                            DatabaseHelper.logAudit(db, "DELETE_ANIMAL", "ANIMALS", Long.parseLong(animalId), "Deleted animal record ID: " + animalId);
+                            Toast.makeText(AnimalDetailActivity.this, "Record deleted", Toast.LENGTH_SHORT).show();
                             Toast.makeText(AnimalDetailActivity.this, "Record deleted", Toast.LENGTH_SHORT).show();
                             finish();
                         } catch (Exception e) {

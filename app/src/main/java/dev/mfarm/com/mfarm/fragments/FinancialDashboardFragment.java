@@ -2,6 +2,7 @@ package dev.mfarm.com.mfarm.fragments;
 
 import android.content.Intent;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,6 +24,7 @@ import dev.mfarm.com.mfarm.ExpenseActivity;
 import dev.mfarm.com.mfarm.IncomeActivity;
 import dev.mfarm.com.mfarm.MainActivity;
 import dev.mfarm.com.mfarm.R;
+import dev.mfarm.com.mfarm.dao.DatabaseHelper;
 
 public class FinancialDashboardFragment extends Fragment {
 
@@ -69,27 +71,37 @@ public class FinancialDashboardFragment extends Fragment {
         return view;
     }
 
+    private SQLiteDatabase getDb() {
+        return DatabaseHelper.getDatabase(getContext() != null ? getContext() : getActivity());
+    }
+
     private void loadCurrency() {
         currencySymbol = "UGX ";
-        Cursor cursor = MainActivity.database.rawQuery("SELECT currency_symbol FROM farm_profile LIMIT 1", null);
-        if (cursor.moveToFirst()) {
-            String sym = cursor.getString(0);
-            if (sym != null && !sym.isEmpty() && !"$".equals(sym)) {
-                currencySymbol = sym + (sym.endsWith(" ") ? "" : " ");
+        SQLiteDatabase db = getDb();
+        if (db == null) return;
+        Cursor cursor = db.rawQuery("SELECT currency_symbol FROM farm_profile LIMIT 1", null);
+        if (cursor != null) {
+            if (cursor.moveToFirst()) {
+                String sym = cursor.getString(0);
+                if (sym != null && !sym.isEmpty() && !"$".equals(sym)) {
+                    currencySymbol = sym + (sym.endsWith(" ") ? "" : " ");
+                }
             }
+            cursor.close();
         }
-        cursor.close();
     }
 
     private void loadTotals() {
         double totalIncome = 0;
         double totalExpense = 0;
+        SQLiteDatabase db = getDb();
+        if (db == null) return;
 
         java.util.Calendar calToday = java.util.Calendar.getInstance();
         int targetMonth = calToday.get(java.util.Calendar.MONTH);
         int targetYear = calToday.get(java.util.Calendar.YEAR);
 
-        Cursor c1 = MainActivity.database.rawQuery("SELECT date, amount FROM income", null);
+        Cursor c1 = db.rawQuery("SELECT date, amount FROM income", null);
         if (c1 != null) {
             while (c1.moveToNext()) {
                 String dStr = c1.getString(0);
@@ -101,7 +113,7 @@ public class FinancialDashboardFragment extends Fragment {
             c1.close();
         }
 
-        Cursor c2 = MainActivity.database.rawQuery("SELECT date, amount FROM expenses", null);
+        Cursor c2 = db.rawQuery("SELECT date, amount FROM expenses", null);
         if (c2 != null) {
             while (c2.moveToNext()) {
                 String dStr = c2.getString(0);
@@ -122,6 +134,8 @@ public class FinancialDashboardFragment extends Fragment {
 
     private void loadRecentTransactions() {
         transactionList.clear();
+        SQLiteDatabase db = getDb();
+        if (db == null) return;
 
         class FinancialItem {
             String type;
@@ -143,7 +157,7 @@ public class FinancialDashboardFragment extends Fragment {
 
         List<FinancialItem> items = new ArrayList<>();
 
-        Cursor c1 = MainActivity.database.rawQuery("SELECT date, category, amount, description, id FROM income ORDER BY id DESC LIMIT 10", null);
+        Cursor c1 = db.rawQuery("SELECT date, category, amount, description, id FROM income ORDER BY id DESC LIMIT 10", null);
         if (c1 != null) {
             while (c1.moveToNext()) {
                 items.add(new FinancialItem("[INCOME]", c1.getString(0), c1.getString(1), c1.getDouble(2), c1.getString(3), c1.getInt(4)));
@@ -151,7 +165,7 @@ public class FinancialDashboardFragment extends Fragment {
             c1.close();
         }
 
-        Cursor c2 = MainActivity.database.rawQuery("SELECT date, category, amount, description, id FROM expenses ORDER BY id DESC LIMIT 10", null);
+        Cursor c2 = db.rawQuery("SELECT date, category, amount, description, id FROM expenses ORDER BY id DESC LIMIT 10", null);
         if (c2 != null) {
             while (c2.moveToNext()) {
                 items.add(new FinancialItem("[EXPENSE]", c2.getString(0), c2.getString(1), c2.getDouble(2), c2.getString(3), c2.getInt(4)));

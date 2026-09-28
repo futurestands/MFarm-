@@ -88,6 +88,7 @@ public final class FarmSnapshot {
                 }
             }
             if (failed == 0) {
+                resolveAnimalLineageLinks(db, ordered);
                 db.setTransactionSuccessful();
             } else {
                 Log.e(TAG, "Restore transaction failed with " + failed + " error(s). Rolling back transaction.");
@@ -420,6 +421,32 @@ public final class FarmSnapshot {
             return 0L;
         } finally {
             c.close();
+        }
+    }
+
+    private static void resolveAnimalLineageLinks(SQLiteDatabase db, List<JSONObject> records) {
+        for (JSONObject rec : records) {
+            if ("animas".equals(rec.optString("table"))) {
+                JSONObject links = rec.optJSONObject("links");
+                if (links != null && (links.has("dam_id") || links.has("sire_id"))) {
+                    String uuid = rec.optString("uuid");
+                    Integer localId = localIdForUuid(db, uuid);
+                    if (localId != null) {
+                        ContentValues updates = new ContentValues();
+                        if (links.has("dam_id")) {
+                            Integer damLocal = localIdForUuid(db, links.optString("dam_id"));
+                            if (damLocal != null) updates.put("dam_id", damLocal);
+                        }
+                        if (links.has("sire_id")) {
+                            Integer sireLocal = localIdForUuid(db, links.optString("sire_id"));
+                            if (sireLocal != null) updates.put("sire_id", sireLocal);
+                        }
+                        if (updates.size() > 0) {
+                            db.update("animas", updates, "id=?", new String[]{String.valueOf(localId)});
+                        }
+                    }
+                }
+            }
         }
     }
 }
