@@ -194,6 +194,26 @@ public class AnimalDetailActivity extends AppCompatActivity {
                             detachExpense.putNull("related_animal_id");
                             MainActivity.database.update("expenses", detachExpense, "related_animal_id=?", new String[]{animalId});
 
+                            ContentValues detachDam = new ContentValues();
+                            detachDam.putNull("dam_id");
+                            MainActivity.database.update("animas", detachDam, "dam_id=?", new String[]{animalId});
+
+                            ContentValues detachSire = new ContentValues();
+                            detachSire.putNull("sire_id");
+                            MainActivity.database.update("animas", detachSire, "sire_id=?", new String[]{animalId});
+
+                            ContentValues detachCalvingDam = new ContentValues();
+                            detachCalvingDam.putNull("dam_id");
+                            MainActivity.database.update("calving_records", detachCalvingDam, "dam_id=?", new String[]{animalId});
+
+                            ContentValues detachCalvingSire = new ContentValues();
+                            detachCalvingSire.putNull("sire_id");
+                            MainActivity.database.update("calving_records", detachCalvingSire, "sire_id=?", new String[]{animalId});
+
+                            ContentValues detachOffspring = new ContentValues();
+                            detachOffspring.putNull("offspring_id");
+                            MainActivity.database.update("calving_records", detachOffspring, "offspring_id=?", new String[]{animalId});
+
                             MainActivity.database.delete("animas", "id=?", new String[]{animalId});
                             MainActivity.database.setTransactionSuccessful();
                             DatabaseHelper.logAudit(MainActivity.database, "DELETE_ANIMAL", "ANIMALS", Long.parseLong(animalId), "Deleted animal record ID: " + animalId);

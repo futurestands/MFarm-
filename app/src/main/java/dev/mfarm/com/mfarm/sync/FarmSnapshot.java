@@ -87,7 +87,11 @@ public final class FarmSnapshot {
                     errors.add("Error applying record in table '" + table + "': " + e.getMessage());
                 }
             }
-            db.setTransactionSuccessful();
+            if (failed == 0) {
+                db.setTransactionSuccessful();
+            } else {
+                Log.e(TAG, "Restore transaction failed with " + failed + " error(s). Rolling back transaction.");
+            }
         } finally {
             db.endTransaction();
             FarmSyncSchema.setApplying(db, false);

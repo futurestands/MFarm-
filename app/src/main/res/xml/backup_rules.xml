@@ -2,5 +2,6 @@
 <full-backup-content>
     <include domain="sharedpref" path="." />
     <include domain="database" path="." />
+    <exclude domain="sharedpref" path="farm_sync_identity.xml" />
     <exclude domain="database" path="farmapp.sqlite" />
 </full-backup-content>

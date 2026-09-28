@@ -123,21 +123,55 @@ public class FinancialDashboardFragment extends Fragment {
     private void loadRecentTransactions() {
         transactionList.clear();
 
-        Cursor c1 = MainActivity.database.rawQuery("SELECT date, category, amount, description FROM income ORDER BY id DESC LIMIT 10", null);
-        if (c1.moveToFirst()) {
-            do {
-                transactionList.add("[INCOME] " + c1.getString(0) + " - " + c1.getString(1) + ": " + currencySymbol + c1.getDouble(2) + " (" + c1.getString(3) + ")");
-            } while (c1.moveToNext());
-        }
-        c1.close();
+        class FinancialItem {
+            String type;
+            String date;
+            String category;
+            double amount;
+            String desc;
+            int id;
 
-        Cursor c2 = MainActivity.database.rawQuery("SELECT date, category, amount, description FROM expenses ORDER BY id DESC LIMIT 10", null);
-        if (c2.moveToFirst()) {
-            do {
-                transactionList.add("[EXPENSE] " + c2.getString(0) + " - " + c2.getString(1) + ": " + currencySymbol + c2.getDouble(2) + " (" + c2.getString(3) + ")");
-            } while (c2.moveToNext());
+            FinancialItem(String type, String date, String category, double amount, String desc, int id) {
+                this.type = type;
+                this.date = date;
+                this.category = category;
+                this.amount = amount;
+                this.desc = desc;
+                this.id = id;
+            }
         }
-        c2.close();
+
+        List<FinancialItem> items = new ArrayList<>();
+
+        Cursor c1 = MainActivity.database.rawQuery("SELECT date, category, amount, description, id FROM income ORDER BY id DESC LIMIT 10", null);
+        if (c1 != null) {
+            while (c1.moveToNext()) {
+                items.add(new FinancialItem("[INCOME]", c1.getString(0), c1.getString(1), c1.getDouble(2), c1.getString(3), c1.getInt(4)));
+            }
+            c1.close();
+        }
+
+        Cursor c2 = MainActivity.database.rawQuery("SELECT date, category, amount, description, id FROM expenses ORDER BY id DESC LIMIT 10", null);
+        if (c2 != null) {
+            while (c2.moveToNext()) {
+                items.add(new FinancialItem("[EXPENSE]", c2.getString(0), c2.getString(1), c2.getDouble(2), c2.getString(3), c2.getInt(4)));
+            }
+            c2.close();
+        }
+
+        java.util.Collections.sort(items, new java.util.Comparator<FinancialItem>() {
+            @Override
+            public int compare(FinancialItem o1, FinancialItem o2) {
+                return Integer.compare(o2.id, o1.id);
+            }
+        });
+
+        int maxShow = Math.min(10, items.size());
+        for (int i = 0; i < maxShow; i++) {
+            FinancialItem item = items.get(i);
+            String descText = (item.desc != null && !item.desc.trim().isEmpty()) ? " (" + item.desc.trim() + ")" : "";
+            transactionList.add(item.type + " " + item.date + " - " + item.category + ": " + currencySymbol + String.format(Locale.US, "%,.0f", item.amount) + descText);
+        }
 
         if (transactionList.isEmpty()) {
             transactionList.add("No financial transactions recorded yet.");
