@@ -290,14 +290,6 @@ public class FarmIntelligenceEngine {
 
     private static void evaluateMilkTrends(SQLiteDatabase db, Date todayDate, List<Insight> insights) {
         try {
-            Calendar cal7DaysAgo = Calendar.getInstance();
-            cal7DaysAgo.setTime(todayDate);
-            cal7DaysAgo.add(Calendar.DAY_OF_YEAR, -7);
-
-            Calendar cal14DaysAgo = Calendar.getInstance();
-            cal14DaysAgo.setTime(todayDate);
-            cal14DaysAgo.add(Calendar.DAY_OF_YEAR, -14);
-
             double recent7DaysTotal = 0;
             double previous7DaysTotal = 0;
             Set<String> distinctMilkDays = new HashSet<>();
@@ -311,13 +303,14 @@ public class FarmIntelligenceEngine {
                     try {
                         Date d = truncateTime(DATE_FORMAT.parse(dateStr.trim()));
                         if (d != null) {
-                            if (!d.before(cal14DaysAgo.getTime()) && !d.after(todayDate)) {
+                            long diffDays = daysBetween(d, todayDate);
+                            if (diffDays >= 0 && diffDays < 14) {
                                 distinctMilkDays.add(dateStr.trim());
-                            }
-                            if (!d.before(cal7DaysAgo.getTime()) && !d.after(todayDate)) {
-                                recent7DaysTotal += litres;
-                            } else if (!d.before(cal14DaysAgo.getTime()) && d.before(cal7DaysAgo.getTime())) {
-                                previous7DaysTotal += litres;
+                                if (diffDays < 7) {
+                                    recent7DaysTotal += litres;
+                                } else {
+                                    previous7DaysTotal += litres;
+                                }
                             }
                         }
                     } catch (ParseException ignored) {}
@@ -463,7 +456,7 @@ public class FarmIntelligenceEngine {
             Cursor c = db.rawQuery(
                     "SELECT a.name, v.vaccine_name, v.scheduled_date " +
                             "FROM vaccinations v JOIN animas a ON v.animal_id = a.id " +
-                            "WHERE v.status = 'Pending' LIMIT 2", null);
+                            "WHERE v.status = 'Pending' ORDER BY v.id DESC", null);
             while (c.moveToNext()) {
                 String animalName = c.getString(0);
                 String vaccine = c.getString(1);
@@ -477,6 +470,7 @@ public class FarmIntelligenceEngine {
                             if (diffDays >= 0 && diffDays <= 7) {
                                 String dueStr = diffDays == 0 ? "today" : (diffDays == 1 ? "tomorrow" : "in " + diffDays + " days");
                                 comingUp.add(animalName + " " + vaccine + " vaccination " + dueStr);
+                                if (comingUp.size() >= 2) break;
                             }
                         }
                     } catch (ParseException ignored) {}
@@ -489,7 +483,7 @@ public class FarmIntelligenceEngine {
             Cursor c = db.rawQuery(
                     "SELECT a.name, b.expected_birth_date " +
                             "FROM breeding_records b JOIN animas a ON b.animal_id = a.id " +
-                            "WHERE b.status = 'Pregnant' LIMIT 2", null);
+                            "WHERE b.status = 'Pregnant' ORDER BY b.id DESC", null);
             while (c.moveToNext()) {
                 String animalName = c.getString(0);
                 String expStr = c.getString(1);
@@ -502,6 +496,7 @@ public class FarmIntelligenceEngine {
                             if (diffDays >= 0 && diffDays <= 14) {
                                 String dueStr = diffDays == 0 ? "today" : (diffDays == 1 ? "tomorrow" : "in " + diffDays + " days");
                                 comingUp.add(animalName + " expected calving " + dueStr);
+                                if (comingUp.size() >= 4) break;
                             }
                         }
                     } catch (ParseException ignored) {}

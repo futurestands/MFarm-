@@ -174,11 +174,15 @@ public class RegisterCalvingActivity extends AppCompatActivity {
 
             long recordId = MainActivity.database.insert("calving_records", null, calvingValues);
 
-            // Update Dam's status to Lactating & Calved
+            // Update Dam's status to Lactating & Calved, and mark pending breeding record as Calved
             ContentValues damStatus = new ContentValues();
             damStatus.put("lactation_status", "Lactating");
             damStatus.put("repro_status", "Calved");
             MainActivity.database.update("animas", damStatus, "id=?", new String[]{String.valueOf(damId)});
+
+            ContentValues breedingStatus = new ContentValues();
+            breedingStatus.put("status", "Calved");
+            MainActivity.database.update("breeding_records", breedingStatus, "animal_id=? AND status='Pregnant'", new String[]{String.valueOf(damId)});
 
             MainActivity.database.setTransactionSuccessful();
             DatabaseHelper.logAudit(MainActivity.database, "RECORD_CALVING", "BREEDING", recordId, "Recorded calving for Dam ID: " + damId + " | Offspring: " + calfName);
