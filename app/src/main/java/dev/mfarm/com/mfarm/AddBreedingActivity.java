@@ -75,7 +75,7 @@ public class AddBreedingActivity extends AppCompatActivity {
     private void loadAnimals() {
         animalIds.clear();
         animalNames.clear();
-        Cursor cursor = MainActivity.database.rawQuery("SELECT id, name FROM animas WHERE gender = 'Female'", null);
+        Cursor cursor = MainActivity.database.rawQuery("SELECT id, name FROM animas WHERE gender = 'Female' OR gender = '1' OR LOWER(gender) = 'female'", null);
         if (cursor.moveToFirst()) {
             do {
                 animalIds.add(cursor.getInt(0));

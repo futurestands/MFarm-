@@ -195,13 +195,17 @@ public class VaccinationPipelineTest {
         List<MockVaccinationRecord> dbRecords = new ArrayList<>();
 
         Calendar calToday = Calendar.getInstance(NAIROBI);
+        calToday.set(Calendar.HOUR_OF_DAY, 10);
+        long nowMillis = calToday.getTimeInMillis();
         String todayStr = dateFormatter.format(calToday.getTime());
 
         Calendar calTomorrow = Calendar.getInstance(NAIROBI);
+        calTomorrow.setTimeInMillis(nowMillis);
         calTomorrow.add(Calendar.DAY_OF_YEAR, 1);
         String tomorrowStr = dateFormatter.format(calTomorrow.getTime());
 
         Calendar calYesterday = Calendar.getInstance(NAIROBI);
+        calYesterday.setTimeInMillis(nowMillis);
         calYesterday.add(Calendar.DAY_OF_YEAR, -1);
         String yesterdayStr = dateFormatter.format(calYesterday.getTime());
 
@@ -215,7 +219,6 @@ public class VaccinationPipelineTest {
         dbRecords.add(new MockVaccinationRecord(303, 1, "Daisy", "Deworming", yesterdayStr, "Pending"));
 
         // Simulate reschedulePending run:
-        long nowMillis = System.currentTimeMillis();
         Date todayDate;
         try {
             todayDate = dateFormatter.parse(todayStr);

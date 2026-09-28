@@ -195,4 +195,10 @@ public class AnimalDetailActivity extends AppCompatActivity {
                 .setNegativeButton("Cancel", null)
                 .show();
     }
+
+    @Override
+    public boolean onSupportNavigateUp() {
+        finish();
+        return true;
+    }
 }

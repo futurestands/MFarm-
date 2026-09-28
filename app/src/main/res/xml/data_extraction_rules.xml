@@ -2,10 +2,12 @@
 <data-extraction-rules>
     <cloud-backup>
         <include domain="sharedpref" path="." />
+        <include domain="database" path="." />
         <exclude domain="database" path="farmapp.sqlite" />
     </cloud-backup>
     <device-to-device>
         <include domain="sharedpref" path="." />
+        <include domain="database" path="." />
         <exclude domain="database" path="farmapp.sqlite" />
     </device-to-device>
 </data-extraction-rules>

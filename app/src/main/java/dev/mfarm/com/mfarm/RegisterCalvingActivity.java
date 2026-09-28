@@ -103,7 +103,7 @@ public class RegisterCalvingActivity extends AppCompatActivity {
     private void loadDams() {
         damIds.clear();
         damNames.clear();
-        Cursor cursor = MainActivity.database.rawQuery("SELECT id, name FROM animas WHERE gender = 'Female'", null);
+        Cursor cursor = MainActivity.database.rawQuery("SELECT id, name FROM animas WHERE gender = 'Female' OR gender = '1' OR LOWER(gender) = 'female'", null);
         if (cursor.moveToFirst()) {
             do {
                 damIds.add(cursor.getInt(0));

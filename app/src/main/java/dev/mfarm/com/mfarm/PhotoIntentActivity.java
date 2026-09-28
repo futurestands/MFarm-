@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -59,6 +60,9 @@ public class PhotoIntentActivity extends AppCompatActivity {
         setContentView(R.layout.activity_photo_intent);
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        }
 
         Intent intent = getIntent();
         if (intent != null) {
@@ -171,7 +175,7 @@ public class PhotoIntentActivity extends AppCompatActivity {
         int photoH = bmOptions.outHeight;
 
         int scaleFactor = 1;
-        if ((targetW > 0) || (targetH > 0)) {
+        if ((targetW > 0) && (targetH > 0)) {
             scaleFactor = Math.min(photoW / targetW, photoH / targetH);
         }
 
@@ -281,5 +285,20 @@ public class PhotoIntentActivity extends AppCompatActivity {
             btn.setText(getText(R.string.cannot).toString() + " " + btn.getText());
             btn.setClickable(false);
         }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            finish();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public boolean onSupportNavigateUp() {
+        finish();
+        return true;
     }
 }
