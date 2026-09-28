@@ -17,6 +17,11 @@ import java.util.Set;
 public class FarmIntelligenceEngine {
 
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("dd-MM-yyyy", Locale.US);
+    private static final SimpleDateFormat MONTH_NAME_FORMAT = new SimpleDateFormat("MMMM yyyy", Locale.US);
+
+    static {
+        DATE_FORMAT.setLenient(false);
+    }
 
     public static List<Insight> evaluateInsights(SQLiteDatabase db) {
         List<Insight> insights = new ArrayList<>();
@@ -25,7 +30,7 @@ public class FarmIntelligenceEngine {
         }
 
         Calendar calToday = Calendar.getInstance();
-        Date todayDate = calToday.getTime();
+        Date todayDate = truncateTime(calToday.getTime());
         String todayStr = DATE_FORMAT.format(todayDate);
 
         // Rule I: Check active animals count
@@ -65,7 +70,7 @@ public class FarmIntelligenceEngine {
                         Insight.Type.VACCINATION,
                         Insight.Priority.CRITICAL,
                         "Overdue Vaccination",
-                        "Vaccination '" + vaccineName + "' for " + animalName + " was scheduled for " + schedDate + " and is overdue.",
+                        "Vaccination '" + vaccineName + "' for " + animalName + " was scheduled for " + schedDate + " and is currently overdue.",
                         animalId, animalName, "VACCINATION"
                 ));
             }
@@ -86,10 +91,9 @@ public class FarmIntelligenceEngine {
 
                 if (schedDateStr != null && !schedDateStr.trim().isEmpty()) {
                     try {
-                        Date schedDate = DATE_FORMAT.parse(schedDateStr.trim());
+                        Date schedDate = truncateTime(DATE_FORMAT.parse(schedDateStr.trim()));
                         if (schedDate != null) {
-                            long diffMillis = schedDate.getTime() - todayDate.getTime();
-                            long diffDays = diffMillis / (24 * 60 * 60 * 1000L);
+                            long diffDays = daysBetween(todayDate, schedDate);
                             if (diffDays >= 0 && diffDays <= 3) {
                                 String dueDesc = diffDays == 0 ? "today" : (diffDays == 1 ? "tomorrow" : "in " + diffDays + " days");
                                 insights.add(new Insight(
@@ -107,30 +111,34 @@ public class FarmIntelligenceEngine {
             c.close();
         } catch (Exception ignored) {}
 
-        // Rule C: Low Feed Stock
+        // Rule C: Low Stock Warning (Accurate item labeling)
         try {
-            Cursor c = db.rawQuery("SELECT item_name, quantity, unit, min_quantity FROM inventory WHERE quantity <= min_quantity", null);
+            Cursor c = db.rawQuery("SELECT item_name, category, quantity, unit, min_quantity FROM inventory WHERE quantity <= min_quantity", null);
             while (c.moveToNext()) {
                 String itemName = c.getString(0);
-                double qty = c.getDouble(1);
-                String unit = c.getString(2);
-                double minQty = c.getDouble(3);
+                String category = c.getString(1);
+                double qty = c.getDouble(2);
+                String unit = c.getString(3);
+                double minQty = c.getDouble(4);
+
+                boolean isFeed = category != null && category.toLowerCase().contains("feed");
+                String itemLabel = isFeed ? itemName + " feed" : itemName;
 
                 insights.add(new Insight(
                         Insight.Type.FEED,
                         Insight.Priority.ATTENTION,
                         "Low Stock Warning",
-                        itemName + " stock is low (" + String.format(Locale.US, "%.1f", qty) + " " + (unit != null ? unit : "units") + " remaining; minimum alert threshold is " + String.format(Locale.US, "%.1f", minQty) + ").",
+                        itemLabel + " stock is low (" + String.format(Locale.US, "%.1f", qty) + " " + (unit != null ? unit : "units") + " remaining; minimum threshold is " + String.format(Locale.US, "%.1f", minQty) + ").",
                         null, null, "INVENTORY"
                 ));
             }
             c.close();
         } catch (Exception ignored) {}
 
-        // Rule D & E: Milk Production Trend (Decline / Improvement)
+        // Rule D & E: Milk Production Trend
         evaluateMilkTrends(db, todayDate, insights);
 
-        // Rule F: Upcoming Calving
+        // Rule F: Upcoming Calving (Next 14 Days)
         try {
             Cursor c = db.rawQuery(
                     "SELECT b.id, a.name, b.expected_birth_date, a.id " +
@@ -143,9 +151,9 @@ public class FarmIntelligenceEngine {
 
                 if (expBirthStr != null && !expBirthStr.trim().isEmpty()) {
                     try {
-                        Date expDate = DATE_FORMAT.parse(expBirthStr.trim());
+                        Date expDate = truncateTime(DATE_FORMAT.parse(expBirthStr.trim()));
                         if (expDate != null) {
-                            long diffDays = (expDate.getTime() - todayDate.getTime()) / (24 * 60 * 60 * 1000L);
+                            long diffDays = daysBetween(todayDate, expDate);
                             if (diffDays >= 0 && diffDays <= 14) {
                                 String dueDesc = diffDays == 0 ? "today" : (diffDays == 1 ? "tomorrow" : "in " + diffDays + " days");
                                 insights.add(new Insight(
@@ -163,33 +171,34 @@ public class FarmIntelligenceEngine {
             c.close();
         } catch (Exception ignored) {}
 
-        // Rule G: Recent Illness Follow-Up
+        // Rule G: Recent Illness Follow-Up (Filter ALL qualifying records in last 7 days)
         try {
             Cursor c = db.rawQuery(
                     "SELECT a.id, a.name, i.illness_occured, i.date_occured, i.diagnosis " +
                             "FROM illness i JOIN animas a ON i.animal_id = a.id " +
-                            "ORDER BY i.id DESC LIMIT 3", null);
+                            "ORDER BY i.id DESC", null);
+            int healthCount = 0;
             while (c.moveToNext()) {
                 String animalId = String.valueOf(c.getInt(0));
                 String animalName = c.getString(1);
                 String illness = c.getString(2);
                 String dateStr = c.getString(3);
-                String diag = c.getString(4);
 
                 if (dateStr != null && !dateStr.trim().isEmpty()) {
                     try {
-                        Date illnessDate = DATE_FORMAT.parse(dateStr.trim());
+                        Date illnessDate = truncateTime(DATE_FORMAT.parse(dateStr.trim()));
                         if (illnessDate != null) {
-                            long diffDays = (todayDate.getTime() - illnessDate.getTime()) / (24 * 60 * 60 * 1000L);
+                            long diffDays = daysBetween(illnessDate, todayDate);
                             if (diffDays >= 0 && diffDays <= 7) {
-                                String diagText = (diag != null && !diag.trim().isEmpty()) ? " (Diagnosis: " + diag + ")" : "";
                                 insights.add(new Insight(
                                         Insight.Type.HEALTH,
                                         Insight.Priority.ATTENTION,
-                                        "Health Follow-Up Required",
-                                        animalName + " had illness '" + illness + "'" + diagText + " recorded on " + dateStr + ". Monitor recovery closely.",
+                                        "Recent Illness Recorded",
+                                        animalName + ": Recent illness '" + illness + "' recorded on " + dateStr + " — monitor recovery.",
                                         animalId, animalName, "HEALTH"
                                 ));
+                                healthCount++;
+                                if (healthCount >= 5) break; // Cap after collecting full qualifying set
                             }
                         }
                     } catch (ParseException ignored) {}
@@ -198,7 +207,14 @@ public class FarmIntelligenceEngine {
             c.close();
         } catch (Exception ignored) {}
 
-        // Rule H: Financial Attention
+        // Rule H: Financial Attention (CURRENT MONTH ONLY)
+        evaluateMonthlyFinancials(db, calToday, insights);
+
+        Collections.sort(insights);
+        return insights;
+    }
+
+    private static void evaluateMonthlyFinancials(SQLiteDatabase db, Calendar calToday, List<Insight> insights) {
         try {
             double monthIncome = 0;
             double monthExpense = 0;
@@ -208,25 +224,43 @@ public class FarmIntelligenceEngine {
             if (cSym.moveToFirst()) {
                 String s = cSym.getString(0);
                 if (s != null && !s.trim().isEmpty() && !"$".equals(s.trim())) {
-                    currSym = s.trim() + " ";
+                    currSym = s.trim() + (s.trim().endsWith(" ") ? "" : " ");
                 }
             }
             cSym.close();
 
-            Cursor cInc = db.rawQuery("SELECT SUM(amount) FROM income", null);
-            if (cInc.moveToFirst()) monthIncome = cInc.getDouble(0);
+            int targetMonth = calToday.get(Calendar.MONTH);
+            int targetYear = calToday.get(Calendar.YEAR);
+            String monthName = MONTH_NAME_FORMAT.format(calToday.getTime());
+
+            // Current month income
+            Cursor cInc = db.rawQuery("SELECT date, amount FROM income", null);
+            while (cInc.moveToNext()) {
+                String dStr = cInc.getString(0);
+                double amount = cInc.getDouble(1);
+                if (isSameMonth(dStr, targetMonth, targetYear)) {
+                    monthIncome += amount;
+                }
+            }
             cInc.close();
 
-            Cursor cExp = db.rawQuery("SELECT SUM(amount) FROM expenses", null);
-            if (cExp.moveToFirst()) monthExpense = cExp.getDouble(0);
+            // Current month expenses
+            Cursor cExp = db.rawQuery("SELECT date, amount FROM expenses", null);
+            while (cExp.moveToNext()) {
+                String dStr = cExp.getString(0);
+                double amount = cExp.getDouble(1);
+                if (isSameMonth(dStr, targetMonth, targetYear)) {
+                    monthExpense += amount;
+                }
+            }
             cExp.close();
 
             if (monthExpense > monthIncome && monthExpense > 0) {
                 insights.add(new Insight(
                         Insight.Type.FINANCIAL,
                         Insight.Priority.ATTENTION,
-                        "Monthly Expenses Exceed Sales",
-                        "Recorded farm expenses (" + currSym + String.format(Locale.US, "%,.0f", monthExpense) + ") exceed total sales (" + currSym + String.format(Locale.US, "%,.0f", monthIncome) + ") for this period.",
+                        "Monthly Expenses Exceed Income",
+                        "Recorded farm expenses (" + currSym + String.format(Locale.US, "%,.0f", monthExpense) + ") exceed sales (" + currSym + String.format(Locale.US, "%,.0f", monthIncome) + ") for " + monthName + ".",
                         null, null, "FINANCIAL"
                 ));
             } else if (monthIncome > monthExpense && monthIncome > 0) {
@@ -234,15 +268,25 @@ public class FarmIntelligenceEngine {
                 insights.add(new Insight(
                         Insight.Type.FINANCIAL,
                         Insight.Priority.POSITIVE,
-                        "Positive Farm Balance",
-                        "Net farm profit for recorded transactions is +" + currSym + String.format(Locale.US, "%,.0f", net) + ".",
+                        "Positive Monthly Balance",
+                        "Net farm balance for " + monthName + " is +" + currSym + String.format(Locale.US, "%,.0f", net) + ".",
                         null, null, "FINANCIAL"
                 ));
             }
         } catch (Exception ignored) {}
+    }
 
-        Collections.sort(insights);
-        return insights;
+    private static boolean isSameMonth(String dateStr, int targetMonth, int targetYear) {
+        if (dateStr == null || dateStr.trim().isEmpty()) return false;
+        try {
+            Date d = DATE_FORMAT.parse(dateStr.trim());
+            if (d == null) return false;
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(d);
+            return cal.get(Calendar.MONTH) == targetMonth && cal.get(Calendar.YEAR) == targetYear;
+        } catch (ParseException e) {
+            return false;
+        }
     }
 
     private static void evaluateMilkTrends(SQLiteDatabase db, Date todayDate, List<Insight> insights) {
@@ -266,7 +310,7 @@ public class FarmIntelligenceEngine {
 
                 if (dateStr != null && !dateStr.trim().isEmpty()) {
                     try {
-                        Date d = DATE_FORMAT.parse(dateStr.trim());
+                        Date d = truncateTime(DATE_FORMAT.parse(dateStr.trim()));
                         if (d != null) {
                             if (!d.before(cal14DaysAgo.getTime()) && !d.after(todayDate)) {
                                 distinctMilkDays.add(dateStr.trim());
@@ -282,13 +326,12 @@ public class FarmIntelligenceEngine {
             }
             c.close();
 
-            // Insufficient Data check
             if (distinctMilkDays.size() < 3) {
                 insights.add(new Insight(
                         Insight.Type.DATA_QUALITY,
                         Insight.Priority.INFO,
                         "Milk Trend Data Pending",
-                        "Not enough milk records over the last 14 days to calculate a reliable production trend. Record daily milk yields to enable analytics.",
+                        "Not enough milk records over the last 14 days to calculate a reliable production trend.",
                         null, null, "MILK"
                 ));
                 return;
@@ -337,14 +380,14 @@ public class FarmIntelligenceEngine {
             return new FarmBrief(greeting, attention, goodNews, comingUp);
         }
 
-        Date today = cal.getTime();
+        Date today = truncateTime(cal.getTime());
 
-        // 1. Attention: Overdue vaccinations
+        // 1. Attention: Currently overdue vaccinations
         try {
             Cursor c = db.rawQuery("SELECT COUNT(*) FROM vaccinations WHERE status = 'Overdue'", null);
             if (c.moveToFirst() && c.getInt(0) > 0) {
                 int count = c.getInt(0);
-                attention.add(count == 1 ? "1 vaccination is overdue" : count + " vaccinations are overdue");
+                attention.add(count == 1 ? "1 vaccination is currently overdue" : count + " vaccinations are currently overdue");
             }
             c.close();
         } catch (Exception ignored) {}
@@ -353,7 +396,7 @@ public class FarmIntelligenceEngine {
         try {
             Cursor c = db.rawQuery("SELECT item_name FROM inventory WHERE quantity <= min_quantity", null);
             while (c.moveToNext()) {
-                attention.add(c.getString(0) + " feed/supply is running low");
+                attention.add(c.getString(0) + " stock is low");
             }
             c.close();
         } catch (Exception ignored) {}
@@ -368,19 +411,40 @@ public class FarmIntelligenceEngine {
             c.close();
         } catch (Exception ignored) {}
 
-        // 2. Good news: Positive net balance or positive milk trend
+        // 2. Good news: Positive current month balance
         try {
-            double income = 0, expense = 0;
-            Cursor c1 = db.rawQuery("SELECT SUM(amount) FROM income", null);
-            if (c1.moveToFirst()) income = c1.getDouble(0);
+            int targetMonth = cal.get(Calendar.MONTH);
+            int targetYear = cal.get(Calendar.YEAR);
+            double monthInc = 0, monthExp = 0;
+            String currSym = "UGX ";
+
+            Cursor cSym = db.rawQuery("SELECT currency_symbol FROM farm_profile LIMIT 1", null);
+            if (cSym.moveToFirst()) {
+                String s = cSym.getString(0);
+                if (s != null && !s.trim().isEmpty() && !"$".equals(s.trim())) {
+                    currSym = s.trim() + (s.trim().endsWith(" ") ? "" : " ");
+                }
+            }
+            cSym.close();
+
+            Cursor c1 = db.rawQuery("SELECT date, amount FROM income", null);
+            while (c1.moveToNext()) {
+                if (isSameMonth(c1.getString(0), targetMonth, targetYear)) {
+                    monthInc += c1.getDouble(1);
+                }
+            }
             c1.close();
 
-            Cursor c2 = db.rawQuery("SELECT SUM(amount) FROM expenses", null);
-            if (c2.moveToFirst()) expense = c2.getDouble(0);
+            Cursor c2 = db.rawQuery("SELECT date, amount FROM expenses", null);
+            while (c2.moveToNext()) {
+                if (isSameMonth(c2.getString(0), targetMonth, targetYear)) {
+                    monthExp += c2.getDouble(1);
+                }
+            }
             c2.close();
 
-            if (income > expense && income > 0) {
-                goodNews.add("Net farm balance is positive (+UGX " + String.format(Locale.US, "%,.0f", (income - expense)) + ")");
+            if (monthInc > monthExp && monthInc > 0) {
+                goodNews.add("Net balance for this month is +" + currSym + String.format(Locale.US, "%,.0f", (monthInc - monthExp)));
             }
         } catch (Exception ignored) {}
 
@@ -405,9 +469,9 @@ public class FarmIntelligenceEngine {
 
                 if (schedStr != null && !schedStr.trim().isEmpty()) {
                     try {
-                        Date d = DATE_FORMAT.parse(schedStr.trim());
+                        Date d = truncateTime(DATE_FORMAT.parse(schedStr.trim()));
                         if (d != null) {
-                            long diffDays = (d.getTime() - today.getTime()) / (24 * 60 * 60 * 1000L);
+                            long diffDays = daysBetween(today, d);
                             if (diffDays >= 0 && diffDays <= 7) {
                                 String dueStr = diffDays == 0 ? "today" : (diffDays == 1 ? "tomorrow" : "in " + diffDays + " days");
                                 comingUp.add(animalName + " " + vaccine + " vaccination " + dueStr);
@@ -430,9 +494,9 @@ public class FarmIntelligenceEngine {
 
                 if (expStr != null && !expStr.trim().isEmpty()) {
                     try {
-                        Date d = DATE_FORMAT.parse(expStr.trim());
+                        Date d = truncateTime(DATE_FORMAT.parse(expStr.trim()));
                         if (d != null) {
-                            long diffDays = (d.getTime() - today.getTime()) / (24 * 60 * 60 * 1000L);
+                            long diffDays = daysBetween(today, d);
                             if (diffDays >= 0 && diffDays <= 14) {
                                 String dueStr = diffDays == 0 ? "today" : (diffDays == 1 ? "tomorrow" : "in " + diffDays + " days");
                                 comingUp.add(animalName + " expected calving " + dueStr);
@@ -455,7 +519,7 @@ public class FarmIntelligenceEngine {
 
         String todayStr = DATE_FORMAT.format(new Date());
 
-        // Milk today
+        // Milk recorded TODAY
         try {
             Cursor c = db.rawQuery("SELECT SUM(litres) FROM milk_production WHERE datetime = ?", new String[]{todayStr});
             if (c.moveToFirst() && c.getDouble(0) > 0) {
@@ -464,29 +528,29 @@ public class FarmIntelligenceEngine {
             c.close();
         } catch (Exception ignored) {}
 
-        // Completed vaccinations today
+        // Completed vaccinations scheduled or logged TODAY
         try {
-            Cursor c = db.rawQuery("SELECT COUNT(*) FROM vaccinations WHERE status = 'Completed'", null);
+            Cursor c = db.rawQuery("SELECT COUNT(*) FROM vaccinations WHERE status = 'Completed' AND scheduled_date = ?", new String[]{todayStr});
             if (c.moveToFirst() && c.getInt(0) > 0) {
                 int count = c.getInt(0);
-                changes.add("+ " + count + (count == 1 ? " vaccination completed" : " vaccinations completed"));
+                changes.add("+ " + count + (count == 1 ? " vaccination completed today" : " vaccinations completed today"));
             }
             c.close();
         } catch (Exception ignored) {}
 
-        // Overdue vaccinations
+        // Currently overdue vaccinations
         try {
             Cursor c = db.rawQuery("SELECT COUNT(*) FROM vaccinations WHERE status = 'Overdue'", null);
             if (c.moveToFirst() && c.getInt(0) > 0) {
                 int count = c.getInt(0);
-                changes.add("⚠ " + count + (count == 1 ? " vaccination became overdue" : " vaccinations overdue"));
+                changes.add("⚠ " + count + (count == 1 ? " vaccination is currently overdue" : " vaccinations are currently overdue"));
             }
             c.close();
         } catch (Exception ignored) {}
 
         // Today's Expenses
         try {
-            Cursor c = db.rawQuery("SELECT COUNT(*), SUM(amount) FROM expenses WHERE date = ?", new String[]{todayStr});
+            Cursor c = db.rawQuery("SELECT COUNT(*) FROM expenses WHERE date = ?", new String[]{todayStr});
             if (c.moveToFirst() && c.getInt(0) > 0) {
                 int count = c.getInt(0);
                 changes.add("+ " + count + (count == 1 ? " expense recorded today" : " expenses recorded today"));
@@ -496,7 +560,7 @@ public class FarmIntelligenceEngine {
 
         // Today's Income
         try {
-            Cursor c = db.rawQuery("SELECT COUNT(*), SUM(amount) FROM income WHERE date = ?", new String[]{todayStr});
+            Cursor c = db.rawQuery("SELECT COUNT(*) FROM income WHERE date = ?", new String[]{todayStr});
             if (c.moveToFirst() && c.getInt(0) > 0) {
                 int count = c.getInt(0);
                 changes.add("+ " + count + (count == 1 ? " sale/income recorded today" : " sales/income recorded today"));
@@ -505,5 +569,23 @@ public class FarmIntelligenceEngine {
         } catch (Exception ignored) {}
 
         return new WhatChanged(changes);
+    }
+
+    public static Date truncateTime(Date date) {
+        if (date == null) return null;
+        Calendar c = Calendar.getInstance();
+        c.setTime(date);
+        c.set(Calendar.HOUR_OF_DAY, 0);
+        c.set(Calendar.MINUTE, 0);
+        c.set(Calendar.SECOND, 0);
+        c.set(Calendar.MILLISECOND, 0);
+        return c.getTime();
+    }
+
+    public static long daysBetween(Date startDate, Date endDate) {
+        Date start = truncateTime(startDate);
+        Date end = truncateTime(endDate);
+        if (start == null || end == null) return 0;
+        return (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000L);
     }
 }
