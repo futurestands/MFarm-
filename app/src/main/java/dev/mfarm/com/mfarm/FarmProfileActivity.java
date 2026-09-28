@@ -81,7 +81,7 @@ public class FarmProfileActivity extends AppCompatActivity {
         values.put("location", etLocation.getText().toString().trim());
         values.put("phone", etPhone.getText().toString().trim());
         values.put("reg_number", etRegNumber.getText().toString().trim());
-        values.put("currency_symbol", etCurrency.getText().toString().trim().isEmpty() ? "$" : etCurrency.getText().toString().trim());
+        values.put("currency_symbol", etCurrency.getText().toString().trim().isEmpty() ? "UGX" : etCurrency.getText().toString().trim());
         values.put("farm_size", etFarmSize.getText().toString().trim());
         values.put("notes", etNotes.getText().toString().trim());
 

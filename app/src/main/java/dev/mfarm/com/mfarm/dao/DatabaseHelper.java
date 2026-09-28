@@ -179,10 +179,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 				"reg_number TEXT, " +
 				"farm_type TEXT, " +
 				"farm_size TEXT, " +
-				"currency_symbol TEXT DEFAULT '$', " +
+				"currency_symbol TEXT DEFAULT 'UGX', " +
 				"units_system TEXT DEFAULT 'Metric', " +
 				"logo_path TEXT, " +
 				"notes TEXT)");
+
+		try {
+			db.execSQL("UPDATE farm_profile SET currency_symbol = 'UGX' WHERE currency_symbol = '$' OR currency_symbol IS NULL OR currency_symbol = ''");
+		} catch (Exception ignored) {}
 
 		db.execSQL("CREATE TABLE IF NOT EXISTS calving_records (" +
 				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +

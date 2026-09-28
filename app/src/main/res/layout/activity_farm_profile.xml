@@ -107,7 +107,7 @@
                         android:id="@+id/etCurrency"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="Currency Symbol (e.g. $, KSh, €)" />
+                        android:hint="Currency Symbol (e.g. UGX, KSh, $)" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout

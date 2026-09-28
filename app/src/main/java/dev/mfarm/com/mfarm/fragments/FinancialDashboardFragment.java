@@ -30,7 +30,7 @@ public class FinancialDashboardFragment extends Fragment {
     private Button btnRecordIncome, btnRecordExpense;
     private ListView lvFinancials;
     private List<String> transactionList = new ArrayList<>();
-    private String currencySymbol = "$";
+    private String currencySymbol = "UGX ";
 
     public static FinancialDashboardFragment newInstance() {
         return new FinancialDashboardFragment();
@@ -70,11 +70,12 @@ public class FinancialDashboardFragment extends Fragment {
     }
 
     private void loadCurrency() {
+        currencySymbol = "UGX ";
         Cursor cursor = MainActivity.database.rawQuery("SELECT currency_symbol FROM farm_profile LIMIT 1", null);
         if (cursor.moveToFirst()) {
             String sym = cursor.getString(0);
-            if (sym != null && !sym.isEmpty()) {
-                currencySymbol = sym;
+            if (sym != null && !sym.isEmpty() && !"$".equals(sym)) {
+                currencySymbol = sym + (sym.endsWith(" ") ? "" : " ");
             }
         }
         cursor.close();
@@ -98,9 +99,9 @@ public class FinancialDashboardFragment extends Fragment {
 
         double net = totalIncome - totalExpense;
 
-        tvMonthIncome.setText(String.format(Locale.US, "%s%.2f", currencySymbol, totalIncome));
-        tvMonthExpense.setText(String.format(Locale.US, "%s%.2f", currencySymbol, totalExpense));
-        tvNetBalance.setText(String.format(Locale.US, "%s%.2f", currencySymbol, net));
+        tvMonthIncome.setText(String.format(Locale.US, "%s%,.0f", currencySymbol, totalIncome));
+        tvMonthExpense.setText(String.format(Locale.US, "%s%,.0f", currencySymbol, totalExpense));
+        tvNetBalance.setText(String.format(Locale.US, "%s%,.0f", currencySymbol, net));
     }
 
     private void loadRecentTransactions() {

@@ -88,10 +88,22 @@ public class SearchActivity extends AppCompatActivity {
         c3.close();
 
         // Search Expenses & Income
+        String currencySymbol = "UGX ";
+        try {
+            Cursor cur = MainActivity.database.rawQuery("SELECT currency_symbol FROM farm_profile LIMIT 1", null);
+            if (cur.moveToFirst()) {
+                String sym = cur.getString(0);
+                if (sym != null && !sym.isEmpty() && !"$".equals(sym)) {
+                    currencySymbol = sym + (sym.endsWith(" ") ? "" : " ");
+                }
+            }
+            cur.close();
+        } catch (Exception ignored) {}
+
         Cursor c4 = MainActivity.database.rawQuery("SELECT category, amount, date, description FROM expenses WHERE category LIKE ? OR description LIKE ?", new String[]{wild, wild});
         if (c4.moveToFirst()) {
             do {
-                searchResults.add("[EXPENSE] " + c4.getString(0) + ": $" + c4.getDouble(1) + " (" + c4.getString(2) + " - " + c4.getString(3) + ")");
+                searchResults.add("[EXPENSE] " + c4.getString(0) + ": " + currencySymbol + String.format(java.util.Locale.US, "%,.0f", c4.getDouble(1)) + " (" + c4.getString(2) + " - " + c4.getString(3) + ")");
             } while (c4.moveToNext());
         }
         c4.close();
@@ -99,7 +111,7 @@ public class SearchActivity extends AppCompatActivity {
         Cursor c5 = MainActivity.database.rawQuery("SELECT category, amount, date, description FROM income WHERE category LIKE ? OR description LIKE ?", new String[]{wild, wild});
         if (c5.moveToFirst()) {
             do {
-                searchResults.add("[INCOME] " + c5.getString(0) + ": $" + c5.getDouble(1) + " (" + c5.getString(2) + " - " + c5.getString(3) + ")");
+                searchResults.add("[INCOME] " + c5.getString(0) + ": " + currencySymbol + String.format(java.util.Locale.US, "%,.0f", c5.getDouble(1)) + " (" + c5.getString(2) + " - " + c5.getString(3) + ")");
             } while (c5.moveToNext());
         }
         c5.close();
