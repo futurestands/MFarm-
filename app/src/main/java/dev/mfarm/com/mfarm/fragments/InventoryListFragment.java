@@ -87,8 +87,11 @@ public class InventoryListFragment extends Fragment {
     private void loadInventory() {
         itemList.clear();
         try {
-            Cursor cursor = MainActivity.database.rawQuery("SELECT * FROM inventory ORDER BY item_name ASC", null);
-            if (cursor.moveToFirst()) {
+            android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(getContext() != null ? getContext() : getActivity());
+            if (db == null) return;
+
+            Cursor cursor = db.rawQuery("SELECT * FROM inventory ORDER BY item_name ASC", null);
+            if (cursor != null && cursor.moveToFirst()) {
                 do {
                     InventoryItem item = new InventoryItem(
                             cursor.getInt(0),
@@ -101,7 +104,7 @@ public class InventoryListFragment extends Fragment {
                     itemList.add(item);
                 } while (cursor.moveToNext());
             }
-            cursor.close();
+            if (cursor != null) cursor.close();
         } catch (Exception ignored) {}
     }
 }

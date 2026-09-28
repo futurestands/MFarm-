@@ -237,7 +237,7 @@ public class AnimalDetailActivity extends AppCompatActivity {
                         } catch (Exception e) {
                             Toast.makeText(AnimalDetailActivity.this, "Error deleting record", Toast.LENGTH_SHORT).show();
                         } finally {
-                            MainActivity.database.endTransaction();
+                            db.endTransaction();
                         }
                     }
                 })

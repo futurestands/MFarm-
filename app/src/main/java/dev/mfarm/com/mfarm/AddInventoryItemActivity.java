@@ -67,7 +67,10 @@ public class AddInventoryItemActivity extends AppCompatActivity {
         values.put("min_quantity", minQuantity);
 
         try {
-            MainActivity.database.insert("inventory", null, values);
+            android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(this);
+            if (db != null) {
+                db.insert("inventory", null, values);
+            }
             Toast.makeText(this, "Item Saved Successfully", Toast.LENGTH_LONG).show();
             finish();
         } catch (Exception e) {

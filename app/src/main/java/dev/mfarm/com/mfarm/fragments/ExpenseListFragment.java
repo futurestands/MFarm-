@@ -51,8 +51,11 @@ public class ExpenseListFragment extends Fragment {
 
     private void loadExpenses() {
         expenseList.clear();
-        Cursor cursor = MainActivity.database.rawQuery("SELECT * FROM expenses ORDER BY id DESC", null);
-        if (cursor.moveToFirst()) {
+        android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(getContext() != null ? getContext() : getActivity());
+        if (db == null) return;
+
+        Cursor cursor = db.rawQuery("SELECT * FROM expenses ORDER BY id DESC", null);
+        if (cursor != null && cursor.moveToFirst()) {
             do {
                 Expense expense = new Expense(
                         cursor.getInt(0),
@@ -64,6 +67,6 @@ public class ExpenseListFragment extends Fragment {
                 expenseList.add(expense);
             } while (cursor.moveToNext());
         }
-        cursor.close();
+        if (cursor != null) cursor.close();
     }
 }

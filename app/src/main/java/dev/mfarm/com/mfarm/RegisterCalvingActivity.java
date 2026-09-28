@@ -100,17 +100,24 @@ public class RegisterCalvingActivity extends AppCompatActivity {
         spinnerSurvival.setAdapter(survivalAdapter);
     }
 
+    private android.database.sqlite.SQLiteDatabase getDb() {
+        return DatabaseHelper.getDatabase(this);
+    }
+
     private void loadDams() {
         damIds.clear();
         damNames.clear();
-        Cursor cursor = MainActivity.database.rawQuery("SELECT id, name FROM animas WHERE gender = 'Female' OR gender = '1' OR LOWER(gender) = 'female'", null);
-        if (cursor.moveToFirst()) {
+        android.database.sqlite.SQLiteDatabase db = getDb();
+        if (db == null) return;
+
+        Cursor cursor = db.rawQuery("SELECT id, name FROM animas WHERE gender = 'Female' OR gender = '1' OR LOWER(gender) = 'female'", null);
+        if (cursor != null && cursor.moveToFirst()) {
             do {
                 damIds.add(cursor.getInt(0));
                 damNames.add(cursor.getString(1));
             } while (cursor.moveToNext());
         }
-        cursor.close();
+        if (cursor != null) cursor.close();
 
         if (damNames.isEmpty()) {
             damNames.add("No Female Animals Registered");
@@ -143,7 +150,10 @@ public class RegisterCalvingActivity extends AppCompatActivity {
             return;
         }
 
-        MainActivity.database.beginTransaction();
+        android.database.sqlite.SQLiteDatabase db = getDb();
+        if (db == null) return;
+
+        db.beginTransaction();
         try {
             long offspringId = -1;
             if ("Alive".equalsIgnoreCase(survival)) {
@@ -159,7 +169,7 @@ public class RegisterCalvingActivity extends AppCompatActivity {
                 calfValues.put("lactation_status", "Dry");
                 calfValues.put("health_status", "Healthy");
 
-                offspringId = MainActivity.database.insert("animas", null, calfValues);
+                offspringId = db.insert("animas", null, calfValues);
             }
 
             ContentValues calvingValues = new ContentValues();
@@ -172,27 +182,27 @@ public class RegisterCalvingActivity extends AppCompatActivity {
             calvingValues.put("survival_status", survival);
             calvingValues.put("notes", notes);
 
-            long recordId = MainActivity.database.insert("calving_records", null, calvingValues);
+            long recordId = db.insert("calving_records", null, calvingValues);
 
             // Update Dam's status to Lactating & Calved, and mark pending breeding record as Calved
             ContentValues damStatus = new ContentValues();
             damStatus.put("lactation_status", "Lactating");
             damStatus.put("repro_status", "Calved");
-            MainActivity.database.update("animas", damStatus, "id=?", new String[]{String.valueOf(damId)});
+            db.update("animas", damStatus, "id=?", new String[]{String.valueOf(damId)});
 
             ContentValues breedingStatus = new ContentValues();
             breedingStatus.put("status", "Calved");
-            MainActivity.database.update("breeding_records", breedingStatus, "animal_id=? AND status='Pregnant'", new String[]{String.valueOf(damId)});
+            db.update("breeding_records", breedingStatus, "animal_id=? AND status='Pregnant'", new String[]{String.valueOf(damId)});
 
-            MainActivity.database.setTransactionSuccessful();
-            DatabaseHelper.logAudit(MainActivity.database, "RECORD_CALVING", "BREEDING", recordId, "Recorded calving for Dam ID: " + damId + " | Offspring: " + calfName);
+            db.setTransactionSuccessful();
+            DatabaseHelper.logAudit(db, "RECORD_CALVING", "BREEDING", recordId, "Recorded calving for Dam ID: " + damId + " | Offspring: " + calfName);
 
             Toast.makeText(this, "Calving Registered Successfully", Toast.LENGTH_LONG).show();
             finish();
         } catch (Exception e) {
             Toast.makeText(this, "Error saving calving: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         } finally {
-            MainActivity.database.endTransaction();
+            db.endTransaction();
         }
     }
 

@@ -64,6 +64,10 @@ public class FeedManagementActivity extends AppCompatActivity {
         });
     }
 
+    private android.database.sqlite.SQLiteDatabase getDb() {
+        return DatabaseHelper.getDatabase(this);
+    }
+
     private void loadFeeds() {
         feedIds.clear();
         feedNames.clear();
@@ -72,8 +76,11 @@ public class FeedManagementActivity extends AppCompatActivity {
 
         StringBuilder stockSummary = new StringBuilder();
 
-        Cursor cursor = MainActivity.database.rawQuery("SELECT id, item_name, quantity, unit, min_quantity FROM inventory WHERE category = 'Feed' OR category = 'Feeds' OR category LIKE '%feed%' ORDER BY item_name ASC", null);
-        if (cursor.moveToFirst()) {
+        android.database.sqlite.SQLiteDatabase db = getDb();
+        if (db == null) return;
+
+        Cursor cursor = db.rawQuery("SELECT id, item_name, quantity, unit, min_quantity FROM inventory WHERE category = 'Feed' OR category = 'Feeds' OR category LIKE '%feed%' ORDER BY item_name ASC", null);
+        if (cursor != null && cursor.moveToFirst()) {
             do {
                 int id = cursor.getInt(0);
                 String name = cursor.getString(1);
@@ -93,7 +100,7 @@ public class FeedManagementActivity extends AppCompatActivity {
                 stockSummary.append("\n");
             } while (cursor.moveToNext());
         }
-        cursor.close();
+        if (cursor != null) cursor.close();
 
         if (feedNames.isEmpty()) {
             feedNames.add("No Feed Inventory Items Found");
@@ -135,12 +142,15 @@ public class FeedManagementActivity extends AppCompatActivity {
         double newStock = currentStock - consumeQty;
         String todayDate = new SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.US).format(new Date());
 
-        MainActivity.database.beginTransaction();
+        android.database.sqlite.SQLiteDatabase db = getDb();
+        if (db == null) return;
+
+        db.beginTransaction();
         try {
             // Update stock level
             ContentValues invValues = new ContentValues();
             invValues.put("quantity", newStock);
-            MainActivity.database.update("inventory", invValues, "id=?", new String[]{String.valueOf(feedId)});
+            db.update("inventory", invValues, "id=?", new String[]{String.valueOf(feedId)});
 
             // Record transaction log
             ContentValues transValues = new ContentValues();
@@ -149,7 +159,7 @@ public class FeedManagementActivity extends AppCompatActivity {
             transValues.put("quantity", consumeQty);
             transValues.put("date", todayDate);
             transValues.put("remarks", "Consumed by: " + (targetGroup.isEmpty() ? "Herd" : targetGroup) + ". " + notes);
-            long transId = MainActivity.database.insert("inventory_transactions", null, transValues);
+            long transId = db.insert("inventory_transactions", null, transValues);
 
             // Record feed consumption entry
             ContentValues fcValues = new ContentValues();
@@ -159,10 +169,10 @@ public class FeedManagementActivity extends AppCompatActivity {
             fcValues.put("cost", 0);
             fcValues.put("group_or_animal_id", targetGroup);
             fcValues.put("notes", notes);
-            MainActivity.database.insert("feed_consumption", null, fcValues);
+            db.insert("feed_consumption", null, fcValues);
 
-            MainActivity.database.setTransactionSuccessful();
-            DatabaseHelper.logAudit(MainActivity.database, "RECORD_FEED_CONSUMPTION", "INVENTORY", transId, "Consumed " + consumeQty + " " + unit + " of Feed ID: " + feedId);
+            db.setTransactionSuccessful();
+            DatabaseHelper.logAudit(db, "RECORD_FEED_CONSUMPTION", "INVENTORY", transId, "Consumed " + consumeQty + " " + unit + " of Feed ID: " + feedId);
 
             Toast.makeText(this, "Feed Consumption Recorded", Toast.LENGTH_SHORT).show();
 
@@ -174,7 +184,7 @@ public class FeedManagementActivity extends AppCompatActivity {
         } catch (Exception e) {
             Toast.makeText(this, "Error recording consumption: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         } finally {
-            MainActivity.database.endTransaction();
+            db.endTransaction();
         }
     }
 

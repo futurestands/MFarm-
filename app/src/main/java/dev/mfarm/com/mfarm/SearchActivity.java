@@ -60,61 +60,64 @@ public class SearchActivity extends AppCompatActivity {
         searchResults.clear();
         String wild = "%" + query + "%";
 
+        android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(this);
+        if (db == null) return;
+
         // Search Animals
-        Cursor c1 = MainActivity.database.rawQuery("SELECT name, gender, dob, lifecycle_status, repro_status FROM animas WHERE name LIKE ? OR gender LIKE ? OR lifecycle_status LIKE ?", new String[]{wild, wild, wild});
-        if (c1.moveToFirst()) {
+        Cursor c1 = db.rawQuery("SELECT name, gender, dob, lifecycle_status, repro_status FROM animas WHERE name LIKE ? OR gender LIKE ? OR lifecycle_status LIKE ?", new String[]{wild, wild, wild});
+        if (c1 != null && c1.moveToFirst()) {
             do {
                 searchResults.add("[ANIMAL] " + c1.getString(0) + " (" + c1.getString(1) + ", DOB: " + c1.getString(2) + ")\nStatus: " + c1.getString(3) + " | " + c1.getString(4));
             } while (c1.moveToNext());
         }
-        c1.close();
+        if (c1 != null) c1.close();
 
         // Search Illness & Health
-        Cursor c2 = MainActivity.database.rawQuery("SELECT animal_name, illness_occured, date_occured, diagnosis FROM illness WHERE animal_name LIKE ? OR illness_occured LIKE ? OR diagnosis LIKE ?", new String[]{wild, wild, wild});
-        if (c2.moveToFirst()) {
+        Cursor c2 = db.rawQuery("SELECT animal_name, illness_occured, date_occured, diagnosis FROM illness WHERE animal_name LIKE ? OR illness_occured LIKE ? OR diagnosis LIKE ?", new String[]{wild, wild, wild});
+        if (c2 != null && c2.moveToFirst()) {
             do {
                 searchResults.add("[HEALTH] " + c2.getString(0) + " - " + c2.getString(1) + " (" + c2.getString(2) + ")\nDiagnosis: " + c2.getString(3));
             } while (c2.moveToNext());
         }
-        c2.close();
+        if (c2 != null) c2.close();
 
         // Search Inventory
-        Cursor c3 = MainActivity.database.rawQuery("SELECT item_name, category, quantity, unit FROM inventory WHERE item_name LIKE ? OR category LIKE ?", new String[]{wild, wild});
-        if (c3.moveToFirst()) {
+        Cursor c3 = db.rawQuery("SELECT item_name, category, quantity, unit FROM inventory WHERE item_name LIKE ? OR category LIKE ?", new String[]{wild, wild});
+        if (c3 != null && c3.moveToFirst()) {
             do {
                 searchResults.add("[INVENTORY] " + c3.getString(0) + " [" + c3.getString(1) + "]: " + c3.getDouble(2) + " " + c3.getString(3));
             } while (c3.moveToNext());
         }
-        c3.close();
+        if (c3 != null) c3.close();
 
         // Search Expenses & Income
         String currencySymbol = "UGX ";
         try {
-            Cursor cur = MainActivity.database.rawQuery("SELECT currency_symbol FROM farm_profile LIMIT 1", null);
-            if (cur.moveToFirst()) {
+            Cursor cur = db.rawQuery("SELECT currency_symbol FROM farm_profile LIMIT 1", null);
+            if (cur != null && cur.moveToFirst()) {
                 String sym = cur.getString(0);
                 if (sym != null && !sym.isEmpty() && !"$".equals(sym)) {
                     currencySymbol = sym + (sym.endsWith(" ") ? "" : " ");
                 }
             }
-            cur.close();
+            if (cur != null) cur.close();
         } catch (Exception ignored) {}
 
-        Cursor c4 = MainActivity.database.rawQuery("SELECT category, amount, date, description FROM expenses WHERE category LIKE ? OR description LIKE ?", new String[]{wild, wild});
-        if (c4.moveToFirst()) {
+        Cursor c4 = db.rawQuery("SELECT category, amount, date, description FROM expenses WHERE category LIKE ? OR description LIKE ?", new String[]{wild, wild});
+        if (c4 != null && c4.moveToFirst()) {
             do {
                 searchResults.add("[EXPENSE] " + c4.getString(0) + ": " + currencySymbol + String.format(java.util.Locale.US, "%,.0f", c4.getDouble(1)) + " (" + c4.getString(2) + " - " + c4.getString(3) + ")");
             } while (c4.moveToNext());
         }
-        c4.close();
+        if (c4 != null) c4.close();
 
-        Cursor c5 = MainActivity.database.rawQuery("SELECT category, amount, date, description FROM income WHERE category LIKE ? OR description LIKE ?", new String[]{wild, wild});
-        if (c5.moveToFirst()) {
+        Cursor c5 = db.rawQuery("SELECT category, amount, date, description FROM income WHERE category LIKE ? OR description LIKE ?", new String[]{wild, wild});
+        if (c5 != null && c5.moveToFirst()) {
             do {
                 searchResults.add("[INCOME] " + c5.getString(0) + ": " + currencySymbol + String.format(java.util.Locale.US, "%,.0f", c5.getDouble(1)) + " (" + c5.getString(2) + " - " + c5.getString(3) + ")");
             } while (c5.moveToNext());
         }
-        c5.close();
+        if (c5 != null) c5.close();
 
         if (searchResults.isEmpty()) {
             searchResults.add("No matching records found.");

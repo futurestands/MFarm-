@@ -3,6 +3,7 @@ package dev.mfarm.com.mfarm;
 import android.app.DatePickerDialog;
 import android.content.ContentValues;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -72,17 +73,23 @@ public class AddBreedingActivity extends AppCompatActivity {
         });
     }
 
+    private SQLiteDatabase getDb() {
+        return DatabaseHelper.getDatabase(this);
+    }
+
     private void loadAnimals() {
         animalIds.clear();
         animalNames.clear();
-        Cursor cursor = MainActivity.database.rawQuery("SELECT id, name FROM animas WHERE gender = 'Female' OR gender = '1' OR LOWER(gender) = 'female'", null);
-        if (cursor.moveToFirst()) {
+        SQLiteDatabase db = getDb();
+        if (db == null) return;
+        Cursor cursor = db.rawQuery("SELECT id, name FROM animas WHERE gender = 'Female' OR gender = '1' OR LOWER(gender) = 'female'", null);
+        if (cursor != null && cursor.moveToFirst()) {
             do {
                 animalIds.add(cursor.getInt(0));
                 animalNames.add(cursor.getString(1));
             } while (cursor.moveToNext());
         }
-        cursor.close();
+        if (cursor != null) cursor.close();
 
         if (animalNames.isEmpty()) {
             animalNames.add("No Female Animals Found");
@@ -130,7 +137,10 @@ public class AddBreedingActivity extends AppCompatActivity {
             return;
         }
 
-        MainActivity.database.beginTransaction();
+        SQLiteDatabase db = getDb();
+        if (db == null) return;
+
+        db.beginTransaction();
         try {
             ContentValues values = new ContentValues();
             values.put("animal_id", animalId);
@@ -140,22 +150,22 @@ public class AddBreedingActivity extends AppCompatActivity {
             values.put("status", "Pregnant");
             values.put("pregnancy_confirmed", 1);
 
-            long rowId = MainActivity.database.insert("breeding_records", null, values);
+            long rowId = db.insert("breeding_records", null, values);
 
             // Update animal repro_status to Pregnant
             ContentValues reproValues = new ContentValues();
             reproValues.put("repro_status", "Pregnant");
-            MainActivity.database.update("animas", reproValues, "id=?", new String[]{String.valueOf(animalId)});
+            db.update("animas", reproValues, "id=?", new String[]{String.valueOf(animalId)});
 
-            MainActivity.database.setTransactionSuccessful();
-            DatabaseHelper.logAudit(MainActivity.database, "CREATE_BREEDING", "BREEDING", rowId, "Recorded breeding for Animal ID: " + animalId);
+            db.setTransactionSuccessful();
+            DatabaseHelper.logAudit(db, "CREATE_BREEDING", "BREEDING", rowId, "Recorded breeding for Animal ID: " + animalId);
 
             Toast.makeText(this, "Breeding Record Saved Successfully", Toast.LENGTH_LONG).show();
             finish();
         } catch (Exception e) {
             Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         } finally {
-            MainActivity.database.endTransaction();
+            db.endTransaction();
         }
     }
 

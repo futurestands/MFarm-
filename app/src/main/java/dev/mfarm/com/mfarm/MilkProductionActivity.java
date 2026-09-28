@@ -90,6 +90,10 @@ public class MilkProductionActivity extends AppCompatActivity {
         });
     }
 
+    private android.database.sqlite.SQLiteDatabase getDb() {
+        return DatabaseHelper.getDatabase(this);
+    }
+
     private void saveMilk() {
         String litresStr = edtlitres.getText().toString().trim();
         if (litresStr.isEmpty()) {
@@ -105,7 +109,10 @@ public class MilkProductionActivity extends AppCompatActivity {
         double litres = Double.parseDouble(litresStr);
         String date = btndate.getText().toString();
 
-        MainActivity.database.beginTransaction();
+        android.database.sqlite.SQLiteDatabase db = getDb();
+        if (db == null) return;
+
+        db.beginTransaction();
         try {
             ContentValues collect = new ContentValues();
             collect.put("litres", litres);
@@ -113,10 +120,10 @@ public class MilkProductionActivity extends AppCompatActivity {
             collect.put("description", edtmilkCondition.getText().toString().trim());
             collect.put("datetime", date);
 
-            long rowId = MainActivity.database.insert("milk_production", null, collect);
+            long rowId = db.insert("milk_production", null, collect);
             if (rowId != -1) {
-                MainActivity.database.setTransactionSuccessful();
-                DatabaseHelper.logAudit(MainActivity.database, "RECORD_MILK", "MILK_PRODUCTION", rowId, "Recorded " + litres + "L for Animal ID: " + animal_id);
+                db.setTransactionSuccessful();
+                DatabaseHelper.logAudit(db, "RECORD_MILK", "MILK_PRODUCTION", rowId, "Recorded " + litres + "L for Animal ID: " + animal_id);
                 Toast.makeText(getApplicationContext(), "Saved Successfully", Toast.LENGTH_LONG).show();
 
                 Intent pp = new Intent(getApplicationContext(), MainActivity.class);
@@ -129,7 +136,7 @@ public class MilkProductionActivity extends AppCompatActivity {
         } catch (Exception e) {
             Toast.makeText(getApplicationContext(), "Error saving milk yield: " + e.getMessage(), Toast.LENGTH_LONG).show();
         } finally {
-            MainActivity.database.endTransaction();
+            db.endTransaction();
         }
     }
 
@@ -147,14 +154,17 @@ public class MilkProductionActivity extends AppCompatActivity {
         animalIds.clear();
         animalNames.clear();
         try {
-            Cursor cursor = MainActivity.database.rawQuery("SELECT id, name FROM animas", null);
-            if (cursor.moveToFirst()) {
+            android.database.sqlite.SQLiteDatabase db = getDb();
+            if (db == null) return;
+
+            Cursor cursor = db.rawQuery("SELECT id, name FROM animas", null);
+            if (cursor != null && cursor.moveToFirst()) {
                 do {
                     animalIds.add(cursor.getInt(0));
                     animalNames.add(cursor.getString(1));
                 } while (cursor.moveToNext());
             }
-            cursor.close();
+            if (cursor != null) cursor.close();
 
             if (animalNames.isEmpty()) {
                 animalNames.add("No Animals Registered");

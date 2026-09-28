@@ -38,8 +38,11 @@ public class AuditLogActivity extends AppCompatActivity {
     private void loadLogs() {
         logEntries.clear();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
-        Cursor cursor = MainActivity.database.rawQuery("SELECT timestamp, action, module, details FROM audit_logs ORDER BY id DESC LIMIT 100", null);
-        if (cursor.moveToFirst()) {
+        android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(this);
+        if (db == null) return;
+
+        Cursor cursor = db.rawQuery("SELECT timestamp, action, module, details FROM audit_logs ORDER BY id DESC LIMIT 100", null);
+        if (cursor != null && cursor.moveToFirst()) {
             do {
                 long ts = cursor.getLong(0);
                 String action = cursor.getString(1);
@@ -50,7 +53,7 @@ public class AuditLogActivity extends AppCompatActivity {
                 logEntries.add(dateStr + " [" + module + "]\n" + action + ": " + (details != null ? details : ""));
             } while (cursor.moveToNext());
         }
-        cursor.close();
+        if (cursor != null) cursor.close();
 
         if (logEntries.isEmpty()) {
             logEntries.add("No audit log records found yet.");

@@ -49,19 +49,20 @@ public class FertilityReportFragment extends Fragment {
     }
 
     private void loadStats() {
+        android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(getContext() != null ? getContext() : getActivity());
+        if (db == null) return;
+
         // Count Pregnant
-        Cursor c1 = MainActivity.database.rawQuery("SELECT COUNT(*) FROM breeding_records WHERE status = 'Pregnant'", null);
-        if (c1.moveToFirst()) {
+        Cursor c1 = db.rawQuery("SELECT COUNT(*) FROM breeding_records WHERE status = 'Pregnant'", null);
+        if (c1 != null && c1.moveToFirst()) {
             tvPregnantCount.setText("Total Pregnant Cows: " + c1.getInt(0));
         }
-        c1.close();
+        if (c1 != null) c1.close();
 
         // Count upcoming calving in next 30 days
-        // We'll use a simple SQL string comparison if date format allows, or fetch and check in Java
-        // For robustness, let's fetch all and filter
         int upcoming = 0;
-        Cursor c2 = MainActivity.database.rawQuery("SELECT expected_birth_date FROM breeding_records WHERE status = 'Pregnant'", null);
-        if (c2.moveToFirst()) {
+        Cursor c2 = db.rawQuery("SELECT expected_birth_date FROM breeding_records WHERE status = 'Pregnant'", null);
+        if (c2 != null && c2.moveToFirst()) {
             java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.US);
             java.util.Calendar cal = java.util.Calendar.getInstance();
             cal.add(java.util.Calendar.DAY_OF_YEAR, 30);
@@ -78,7 +79,7 @@ public class FertilityReportFragment extends Fragment {
                 } catch (Exception e) {}
             } while (c2.moveToNext());
         }
-        c2.close();
+        if (c2 != null) c2.close();
         tvUpcomingCalving.setText("Calving in next 30 days: " + upcoming);
     }
 
@@ -88,8 +89,11 @@ public class FertilityReportFragment extends Fragment {
                      "JOIN animas a ON b.animal_id = a.id " +
                      "ORDER BY b.id DESC LIMIT 5";
         
-        Cursor cursor = MainActivity.database.rawQuery(sql, null);
-        if (cursor.moveToFirst()) {
+        android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(getContext() != null ? getContext() : getActivity());
+        if (db == null) return;
+
+        Cursor cursor = db.rawQuery(sql, null);
+        if (cursor != null && cursor.moveToFirst()) {
             do {
                 BreedingRecord b = new BreedingRecord(
                         cursor.getInt(0),
@@ -103,6 +107,6 @@ public class FertilityReportFragment extends Fragment {
                 breedingList.add(b);
             } while (cursor.moveToNext());
         }
-        cursor.close();
+        if (cursor != null) cursor.close();
     }
 }

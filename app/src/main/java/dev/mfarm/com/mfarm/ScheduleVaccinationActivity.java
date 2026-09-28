@@ -32,6 +32,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import dev.mfarm.com.mfarm.dao.DatabaseHelper;
+
 public class ScheduleVaccinationActivity extends AppCompatActivity {
 
     private Spinner spinnerAnimals;
@@ -82,15 +84,22 @@ public class ScheduleVaccinationActivity extends AppCompatActivity {
         updateDateButton();
     }
 
+    private android.database.sqlite.SQLiteDatabase getDb() {
+        return DatabaseHelper.getDatabase(this);
+    }
+
     private void loadAnimals() {
-        Cursor cursor = MainActivity.database.rawQuery("SELECT id, name FROM animas", null);
-        if (cursor.moveToFirst()) {
+        android.database.sqlite.SQLiteDatabase db = getDb();
+        if (db == null) return;
+
+        Cursor cursor = db.rawQuery("SELECT id, name FROM animas", null);
+        if (cursor != null && cursor.moveToFirst()) {
             do {
                 animalIds.add(cursor.getInt(0));
                 animalNames.add(cursor.getString(1));
             } while (cursor.moveToNext());
         }
-        cursor.close();
+        if (cursor != null) cursor.close();
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, animalNames);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -151,7 +160,10 @@ public class ScheduleVaccinationActivity extends AppCompatActivity {
         values.put("remarks", remarks);
 
         try {
-            long id = MainActivity.database.insert("vaccinations", null, values);
+            android.database.sqlite.SQLiteDatabase db = getDb();
+            if (db == null) return;
+
+            long id = db.insert("vaccinations", null, values);
             if (id != -1) {
                 boolean alarmSet = AlarmScheduler.schedule(
                         this, (int) id, animalName, vaccineName, date);

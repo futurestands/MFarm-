@@ -60,9 +60,12 @@ public class VaccinationListFragment extends Fragment {
                         .setPositiveButton("Yes", new android.content.DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(android.content.DialogInterface dialog, int which) {
-                                android.content.ContentValues values = new android.content.ContentValues();
-                                values.put("status", "Completed");
-                                MainActivity.database.update("vaccinations", values, "id=?", new String[]{String.valueOf(v.getId())});
+                                android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(getContext() != null ? getContext() : getActivity());
+                                if (db != null) {
+                                    android.content.ContentValues values = new android.content.ContentValues();
+                                    values.put("status", "Completed");
+                                    db.update("vaccinations", values, "id=?", new String[]{String.valueOf(v.getId())});
+                                }
                                 AlarmScheduler.cancel(getActivity(), v.getId());
                                 AlarmScheduler.clearNotified(getActivity(), v.getId());
                                 loadVaccinations();
@@ -80,13 +83,16 @@ public class VaccinationListFragment extends Fragment {
 
     private void loadVaccinations() {
         vaccinationList.clear();
-        AlarmScheduler.updateOverdueStatus(MainActivity.database);
+        android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(getContext() != null ? getContext() : getActivity());
+        if (db == null) return;
+
+        AlarmScheduler.updateOverdueStatus(db);
         String sql = "SELECT v.*, a.name FROM vaccinations v " +
                      "JOIN animas a ON v.animal_id = a.id " +
                      "ORDER BY v.id DESC";
         
-        Cursor cursor = MainActivity.database.rawQuery(sql, null);
-        if (cursor.moveToFirst()) {
+        Cursor cursor = db.rawQuery(sql, null);
+        if (cursor != null && cursor.moveToFirst()) {
             do {
                 Vaccination v = new Vaccination(
                         cursor.getInt(0),
@@ -100,6 +106,6 @@ public class VaccinationListFragment extends Fragment {
                 vaccinationList.add(v);
             } while (cursor.moveToNext());
         }
-        cursor.close();
+        if (cursor != null) cursor.close();
     }
 }

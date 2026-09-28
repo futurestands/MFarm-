@@ -86,9 +86,11 @@ public class AnimalListFragment extends Fragment{
         supplierList.clear();
         List<animal> members = new ArrayList<animal>();
 
+        android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(getContext() != null ? getContext() : getActivity());
+        if (db == null) return;
 
-        Cursor c = MainActivity.database.rawQuery("SELECT id, name, breed_id, gender, body_conf, dob, dam_id, sire_id FROM animas ORDER BY id DESC", null);
-        if (c.moveToFirst()) {
+        Cursor c = db.rawQuery("SELECT id, name, breed_id, gender, body_conf, dob, dam_id, sire_id FROM animas ORDER BY id DESC", null);
+        if (c != null && c.moveToFirst()) {
             do {
                 supplierList.add(new animal(
                         c.getString(0),
@@ -104,7 +106,7 @@ public class AnimalListFragment extends Fragment{
                 members.add(member);
             } while (c.moveToNext());
         }
-        c.close();
+        if (c != null) c.close();
         data = members;
 
     }

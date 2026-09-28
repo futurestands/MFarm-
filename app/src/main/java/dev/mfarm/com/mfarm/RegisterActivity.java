@@ -63,11 +63,14 @@ public class RegisterActivity extends AppCompatActivity {
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 if (position > 0) {
                     String breed_name = parent.getItemAtPosition(position).toString();
-                    Cursor cursor = MainActivity.database.rawQuery("SELECT id FROM breeds WHERE name =?", new String[]{breed_name});
-                    if (cursor.moveToFirst()) {
-                        breed_id = cursor.getString(0);
+                    android.database.sqlite.SQLiteDatabase db = getDb();
+                    if (db != null) {
+                        Cursor cursor = db.rawQuery("SELECT id FROM breeds WHERE name =?", new String[]{breed_name});
+                        if (cursor != null && cursor.moveToFirst()) {
+                            breed_id = cursor.getString(0);
+                        }
+                        if (cursor != null) cursor.close();
                     }
-                    cursor.close();
                 } else {
                     breed_id = "1";
                 }
@@ -140,19 +143,26 @@ public class RegisterActivity extends AppCompatActivity {
         }
     }
 
+    private android.database.sqlite.SQLiteDatabase getDb() {
+        return dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(this);
+    }
+
     private void LoadBreedSpinner() {
         try {
             adapterForBreedSpinner = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
             adapterForBreedSpinner.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
             adapterForBreedSpinner.add("Select Breed");
 
-            Cursor cursor = MainActivity.database.rawQuery("SELECT id, name FROM breeds", null);
-            if (cursor.moveToFirst()) {
+            android.database.sqlite.SQLiteDatabase db = getDb();
+            if (db == null) return;
+
+            Cursor cursor = db.rawQuery("SELECT id, name FROM breeds", null);
+            if (cursor != null && cursor.moveToFirst()) {
                 do {
                     adapterForBreedSpinner.add(cursor.getString(1));
                 } while (cursor.moveToNext());
             }
-            cursor.close();
+            if (cursor != null) cursor.close();
             spnbreed.setAdapter(adapterForBreedSpinner);
         } catch (Exception e) {
             Log.v("RegisterActivity", e.getMessage());

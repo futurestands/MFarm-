@@ -23,6 +23,8 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
+import dev.mfarm.com.mfarm.dao.DatabaseHelper;
+
 public class VetCheckActivity extends AppCompatActivity {
 
     private Spinner spinnerAnimals;
@@ -81,15 +83,22 @@ public class VetCheckActivity extends AppCompatActivity {
         btnCheckDate.setText(dateFormatter.format(calendar.getTime()));
     }
 
+    private android.database.sqlite.SQLiteDatabase getDb() {
+        return DatabaseHelper.getDatabase(this);
+    }
+
     private void loadAnimals() {
-        Cursor cursor = MainActivity.database.rawQuery("SELECT id, name FROM animas", null);
-        if (cursor.moveToFirst()) {
+        android.database.sqlite.SQLiteDatabase db = getDb();
+        if (db == null) return;
+
+        Cursor cursor = db.rawQuery("SELECT id, name FROM animas", null);
+        if (cursor != null && cursor.moveToFirst()) {
             do {
                 animalIds.add(cursor.getInt(0));
                 animalNames.add(cursor.getString(1));
             } while (cursor.moveToNext());
         }
-        cursor.close();
+        if (cursor != null) cursor.close();
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, animalNames);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -117,7 +126,10 @@ public class VetCheckActivity extends AppCompatActivity {
         values.put("remarks", remarks);
 
         try {
-            MainActivity.database.insert("vet_checks", null, values);
+            android.database.sqlite.SQLiteDatabase db = getDb();
+            if (db != null) {
+                db.insert("vet_checks", null, values);
+            }
             Toast.makeText(this, "Vet Check Saved Successfully", Toast.LENGTH_LONG).show();
             finish();
         } catch (Exception e) {

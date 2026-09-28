@@ -79,11 +79,14 @@ public class IllnessActivity extends AppCompatActivity {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 animalName = ((TextView) view).getText().toString();
-                Cursor cursor = MainActivity.database.rawQuery("SELECT id,name FROM animas where name = ?", new String[]{animalName});
-                if (cursor.moveToFirst()) {
-                    animal_id = cursor.getInt(0);
+                android.database.sqlite.SQLiteDatabase db = getDb();
+                if (db != null) {
+                    Cursor cursor = db.rawQuery("SELECT id,name FROM animas where name = ?", new String[]{animalName});
+                    if (cursor != null && cursor.moveToFirst()) {
+                        animal_id = cursor.getInt(0);
+                    }
+                    if (cursor != null) cursor.close();
                 }
-                cursor.close();
             }
 
             @Override
@@ -126,7 +129,10 @@ public class IllnessActivity extends AppCompatActivity {
                     collect.put("others", "");
 
                     try {
-                        MainActivity.database.insert("illness", null, collect);
+                        android.database.sqlite.SQLiteDatabase db = getDb();
+                        if (db != null) {
+                            db.insert("illness", null, collect);
+                        }
                         Toast.makeText(getApplicationContext(), "Saved Successfully", Toast.LENGTH_LONG).show();
 
                         Intent pp = new Intent(getApplicationContext(), TreatmentActivity.class);
@@ -140,17 +146,24 @@ public class IllnessActivity extends AppCompatActivity {
         });
     }
 
+    private android.database.sqlite.SQLiteDatabase getDb() {
+        return dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(this);
+    }
+
     private void loadAnimalData() {
         try {
             adapterForSpinner = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
             adapterForSpinner.add("Select Animal");
-            Cursor cursor = MainActivity.database.rawQuery("SELECT id,name FROM animas", null);
-            if (cursor.moveToFirst()) {
+            android.database.sqlite.SQLiteDatabase db = getDb();
+            if (db == null) return;
+
+            Cursor cursor = db.rawQuery("SELECT id,name FROM animas", null);
+            if (cursor != null && cursor.moveToFirst()) {
                 do {
                     adapterForSpinner.add(cursor.getString(1));
                 } while (cursor.moveToNext());
             }
-            cursor.close();
+            if (cursor != null) cursor.close();
             spinneranimal.setAdapter(adapterForSpinner);
         } catch (Exception e) {
             Log.v("IllnessActivity", e.getMessage());
@@ -161,10 +174,13 @@ public class IllnessActivity extends AppCompatActivity {
         try {
             adapterForSpinner = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
             adapterForSpinner.add("Select Disease Suspected");
-            Cursor cursor = MainActivity.database.rawQuery("SELECT id,disease_name FROM diseases", null);
+            android.database.sqlite.SQLiteDatabase db = getDb();
+            if (db == null) return;
+
+            Cursor cursor = db.rawQuery("SELECT id,disease_name FROM diseases", null);
             int preSelectIndex = -1;
             int currentIndex = 1;
-            if (cursor.moveToFirst()) {
+            if (cursor != null && cursor.moveToFirst()) {
                 do {
                     String dName = cursor.getString(1);
                     adapterForSpinner.add(dName);
@@ -180,7 +196,7 @@ public class IllnessActivity extends AppCompatActivity {
                     currentIndex++;
                 } while (cursor.moveToNext());
             }
-            cursor.close();
+            if (cursor != null) cursor.close();
             spinnerdisease.setAdapter(adapterForSpinner);
             if (preSelectIndex != -1) {
                 spinnerdisease.setSelection(preSelectIndex);

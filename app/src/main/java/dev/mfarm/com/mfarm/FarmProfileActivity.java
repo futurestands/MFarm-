@@ -52,9 +52,15 @@ public class FarmProfileActivity extends AppCompatActivity {
         });
     }
 
+    private android.database.sqlite.SQLiteDatabase getDb() {
+        return DatabaseHelper.getDatabase(this);
+    }
+
     private void loadProfile() {
-        Cursor cursor = MainActivity.database.rawQuery("SELECT * FROM farm_profile LIMIT 1", null);
-        if (cursor.moveToFirst()) {
+        android.database.sqlite.SQLiteDatabase db = getDb();
+        if (db == null) return;
+        Cursor cursor = db.rawQuery("SELECT * FROM farm_profile LIMIT 1", null);
+        if (cursor != null && cursor.moveToFirst()) {
             profileId = cursor.getLong(cursor.getColumnIndex("id"));
             etFarmName.setText(cursor.getString(cursor.getColumnIndex("farm_name")));
             etOwnerName.setText(cursor.getString(cursor.getColumnIndex("owner_name")));
@@ -65,7 +71,7 @@ public class FarmProfileActivity extends AppCompatActivity {
             etFarmSize.setText(cursor.getString(cursor.getColumnIndex("farm_size")));
             etNotes.setText(cursor.getString(cursor.getColumnIndex("notes")));
         }
-        cursor.close();
+        if (cursor != null) cursor.close();
     }
 
     private void saveProfile() {
@@ -86,12 +92,15 @@ public class FarmProfileActivity extends AppCompatActivity {
         values.put("notes", etNotes.getText().toString().trim());
 
         try {
-            if (profileId != -1) {
-                MainActivity.database.update("farm_profile", values, "id=?", new String[]{String.valueOf(profileId)});
-            } else {
-                profileId = MainActivity.database.insert("farm_profile", null, values);
+            android.database.sqlite.SQLiteDatabase db = getDb();
+            if (db != null) {
+                if (profileId != -1) {
+                    db.update("farm_profile", values, "id=?", new String[]{String.valueOf(profileId)});
+                } else {
+                    profileId = db.insert("farm_profile", null, values);
+                }
+                DatabaseHelper.logAudit(db, "UPDATE_PROFILE", "FARM_PROFILE", profileId, "Updated farm profile: " + name);
             }
-            DatabaseHelper.logAudit(MainActivity.database, "UPDATE_PROFILE", "FARM_PROFILE", profileId, "Updated farm profile: " + name);
             Toast.makeText(this, "Farm Profile Saved", Toast.LENGTH_SHORT).show();
             finish();
         } catch (Exception e) {

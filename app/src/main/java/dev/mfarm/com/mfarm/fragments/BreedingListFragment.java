@@ -75,8 +75,11 @@ public class BreedingListFragment extends Fragment {
                      "ORDER BY b.id DESC";
         
         try {
-            Cursor cursor = MainActivity.database.rawQuery(sql, null);
-            if (cursor.moveToFirst()) {
+            android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(getContext() != null ? getContext() : getActivity());
+            if (db == null) return;
+
+            Cursor cursor = db.rawQuery(sql, null);
+            if (cursor != null && cursor.moveToFirst()) {
                 do {
                     BreedingRecord b = new BreedingRecord(
                             cursor.getInt(0),
@@ -90,7 +93,7 @@ public class BreedingListFragment extends Fragment {
                     breedingList.add(b);
                 } while (cursor.moveToNext());
             }
-            cursor.close();
+            if (cursor != null) cursor.close();
         } catch (Exception ignored) {}
     }
 }

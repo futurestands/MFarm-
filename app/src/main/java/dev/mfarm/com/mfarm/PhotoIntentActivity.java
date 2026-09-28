@@ -111,15 +111,18 @@ public class PhotoIntentActivity extends AppCompatActivity {
                 collect.put("lactation_status", "Dry");
                 collect.put("health_status", "Healthy");
 
-                MainActivity.database.beginTransaction();
+                android.database.sqlite.SQLiteDatabase db = DatabaseHelper.getDatabase(PhotoIntentActivity.this);
+                if (db == null) return;
+
+                db.beginTransaction();
                 try {
-                    long rowId = MainActivity.database.insert("animas", null, collect);
+                    long rowId = db.insert("animas", null, collect);
                     if (rowId == -1) {
                         Toast.makeText(getApplicationContext(), "Could not save animal", Toast.LENGTH_LONG).show();
                         return;
                     }
-                    MainActivity.database.setTransactionSuccessful();
-                    DatabaseHelper.logAudit(MainActivity.database, "CREATE_ANIMAL", "ANIMALS", rowId, "Registered animal: " + animalName);
+                    db.setTransactionSuccessful();
+                    DatabaseHelper.logAudit(db, "CREATE_ANIMAL", "ANIMALS", rowId, "Registered animal: " + animalName);
                     Toast.makeText(getApplicationContext(), "Animal Registered Successfully", Toast.LENGTH_LONG).show();
 
                     Intent x = new Intent(getApplicationContext(), MainActivity.class);
@@ -129,7 +132,7 @@ public class PhotoIntentActivity extends AppCompatActivity {
                 } catch (Exception e) {
                     Toast.makeText(getApplicationContext(), "Save failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 } finally {
-                    MainActivity.database.endTransaction();
+                    db.endTransaction();
                 }
             }
         });

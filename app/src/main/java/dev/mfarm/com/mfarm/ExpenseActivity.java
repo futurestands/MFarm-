@@ -96,7 +96,10 @@ public class ExpenseActivity extends AppCompatActivity {
         values.put("description", description);
 
         try {
-            MainActivity.database.insert("expenses", null, values);
+            android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(this);
+            if (db != null) {
+                db.insert("expenses", null, values);
+            }
             Toast.makeText(this, "Saved Successfully", Toast.LENGTH_LONG).show();
             finish();
         } catch (Exception e) {

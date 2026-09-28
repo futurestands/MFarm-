@@ -115,6 +115,10 @@ public class IncomeActivity extends AppCompatActivity {
         spinnerCategory.setAdapter(adapter);
     }
 
+    private android.database.sqlite.SQLiteDatabase getDb() {
+        return DatabaseHelper.getDatabase(this);
+    }
+
     private void loadAnimals() {
         animalIds.clear();
         animalNames.clear();
@@ -122,14 +126,17 @@ public class IncomeActivity extends AppCompatActivity {
         animalIds.add(-1);
         animalNames.add("None / Not Applicable");
 
-        Cursor cursor = MainActivity.database.rawQuery("SELECT id, name FROM animas WHERE lifecycle_status = 'Active'", null);
-        if (cursor.moveToFirst()) {
+        android.database.sqlite.SQLiteDatabase db = getDb();
+        if (db == null) return;
+
+        Cursor cursor = db.rawQuery("SELECT id, name FROM animas WHERE lifecycle_status = 'Active'", null);
+        if (cursor != null && cursor.moveToFirst()) {
             do {
                 animalIds.add(cursor.getInt(0));
                 animalNames.add(cursor.getString(1));
             } while (cursor.moveToNext());
         }
-        cursor.close();
+        if (cursor != null) cursor.close();
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, animalNames);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -152,7 +159,10 @@ public class IncomeActivity extends AppCompatActivity {
         int animalPos = spinnerAnimal.getSelectedItemPosition();
         int relatedAnimalId = (animalPos >= 0 && animalPos < animalIds.size()) ? animalIds.get(animalPos) : -1;
 
-        MainActivity.database.beginTransaction();
+        android.database.sqlite.SQLiteDatabase db = getDb();
+        if (db == null) return;
+
+        db.beginTransaction();
         try {
             ContentValues values = new ContentValues();
             values.put("category", category);
@@ -164,23 +174,23 @@ public class IncomeActivity extends AppCompatActivity {
                 values.put("related_animal_id", relatedAnimalId);
             }
 
-            long rowId = MainActivity.database.insert("income", null, values);
+            long rowId = db.insert("income", null, values);
 
             if ("Animal Sales".equalsIgnoreCase(category) && relatedAnimalId != -1) {
                 ContentValues statusValues = new ContentValues();
                 statusValues.put("lifecycle_status", "Sold");
-                MainActivity.database.update("animas", statusValues, "id=?", new String[]{String.valueOf(relatedAnimalId)});
+                db.update("animas", statusValues, "id=?", new String[]{String.valueOf(relatedAnimalId)});
             }
 
-            MainActivity.database.setTransactionSuccessful();
-            DatabaseHelper.logAudit(MainActivity.database, "RECORD_INCOME", "FINANCIAL", rowId, "Income: " + category + " - " + amount);
+            db.setTransactionSuccessful();
+            DatabaseHelper.logAudit(db, "RECORD_INCOME", "FINANCIAL", rowId, "Income: " + category + " - " + amount);
 
             Toast.makeText(this, "Income Record Saved Successfully", Toast.LENGTH_SHORT).show();
             finish();
         } catch (Exception e) {
             Toast.makeText(this, "Error saving income: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         } finally {
-            MainActivity.database.endTransaction();
+            db.endTransaction();
         }
     }
 

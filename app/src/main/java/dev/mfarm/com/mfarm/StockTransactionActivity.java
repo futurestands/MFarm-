@@ -99,17 +99,20 @@ public class StockTransactionActivity extends AppCompatActivity {
         ContentValues invValues = new ContentValues();
         invValues.put("quantity", newQuantity);
 
+        android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(this);
+        if (db == null) return;
+
         try {
-            MainActivity.database.beginTransaction();
-            MainActivity.database.insert("inventory_transactions", null, transValues);
-            MainActivity.database.update("inventory", invValues, "id=?", new String[]{String.valueOf(itemId)});
-            MainActivity.database.setTransactionSuccessful();
+            db.beginTransaction();
+            db.insert("inventory_transactions", null, transValues);
+            db.update("inventory", invValues, "id=?", new String[]{String.valueOf(itemId)});
+            db.setTransactionSuccessful();
             Toast.makeText(this, "Stock Updated Successfully", Toast.LENGTH_LONG).show();
             finish();
         } catch (Exception e) {
             Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         } finally {
-            MainActivity.database.endTransaction();
+            db.endTransaction();
         }
     }
 

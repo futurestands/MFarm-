@@ -97,7 +97,10 @@ public class TreatmentActivity extends AppCompatActivity {
                 double cost = costStr.isEmpty() ? 0 : Double.parseDouble(costStr);
                 String todayDate = new SimpleDateFormat("dd-MM-yyyy", Locale.US).format(new Date());
 
-                MainActivity.database.beginTransaction();
+                android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(TreatmentActivity.this);
+                if (db == null) return;
+
+                db.beginTransaction();
                 try {
                     ContentValues values = new ContentValues();
                     values.put("diagnosis", diagnosis);
@@ -107,7 +110,7 @@ public class TreatmentActivity extends AppCompatActivity {
                     values.put("cost", cost);
                     values.put("treatment_date", todayDate);
 
-                    MainActivity.database.update("illness", values, "id=?", new String[]{item.getId()});
+                    db.update("illness", values, "id=?", new String[]{item.getId()});
 
                     // Atomic expense creation if cost > 0
                     if (cost > 0) {
@@ -121,11 +124,11 @@ public class TreatmentActivity extends AppCompatActivity {
                                 expValues.put("related_animal_id", Integer.parseInt(item.getAnimal_id()));
                             } catch (Exception ignored) {}
                         }
-                        MainActivity.database.insert("expenses", null, expValues);
+                        db.insert("expenses", null, expValues);
                     }
 
-                    MainActivity.database.setTransactionSuccessful();
-                    DatabaseHelper.logAudit(MainActivity.database, "RECORD_TREATMENT", "HEALTH", Long.parseLong(item.getId()), "Treatment recorded for " + item.getAnimal_name());
+                    db.setTransactionSuccessful();
+                    DatabaseHelper.logAudit(db, "RECORD_TREATMENT", "HEALTH", Long.parseLong(item.getId()), "Treatment recorded for " + item.getAnimal_name());
                     Toast.makeText(TreatmentActivity.this, "Treatment saved successfully", Toast.LENGTH_SHORT).show();
 
                     initList();
@@ -133,7 +136,7 @@ public class TreatmentActivity extends AppCompatActivity {
                 } catch (Exception e) {
                     Toast.makeText(TreatmentActivity.this, "Error saving treatment: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 } finally {
-                    MainActivity.database.endTransaction();
+                    db.endTransaction();
                 }
             }
         });
@@ -144,8 +147,11 @@ public class TreatmentActivity extends AppCompatActivity {
 
     private void initList() {
         supplierList.clear();
-        Cursor c = MainActivity.database.rawQuery("SELECT id, animal_id, animal_name, illness_occured, sings_noted, date_occured, sync_datetime, treatment, diagnosis, medicine, treatment_date, others, medicine_quantity, pregnancy_status, comments FROM illness ORDER BY id DESC", null);
-        if (c.moveToFirst()) {
+        android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(this);
+        if (db == null) return;
+
+        Cursor c = db.rawQuery("SELECT id, animal_id, animal_name, illness_occured, sings_noted, date_occured, sync_datetime, treatment, diagnosis, medicine, treatment_date, others, medicine_quantity, pregnancy_status, comments FROM illness ORDER BY id DESC", null);
+        if (c != null && c.moveToFirst()) {
             do {
                 supplierList.add(new illness(
                         c.getString(0), c.getString(1), c.getString(2), c.getString(3),
@@ -155,7 +161,7 @@ public class TreatmentActivity extends AppCompatActivity {
                 ));
             } while (c.moveToNext());
         }
-        c.close();
+        if (c != null) c.close();
     }
 
     @Override
