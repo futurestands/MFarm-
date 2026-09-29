@@ -19,9 +19,13 @@ import com.google.android.material.textfield.TextInputEditText;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
+import dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter;
+import dev.mfarm.com.mfarm.dao.DatabaseAdapter;
 import dev.mfarm.com.mfarm.dao.DatabaseHelper;
 
 public class RegisterCalvingActivity extends AppCompatActivity {
@@ -153,11 +157,24 @@ public class RegisterCalvingActivity extends AppCompatActivity {
         android.database.sqlite.SQLiteDatabase db = getDb();
         if (db == null) return;
 
+        try {
+            DatabaseAdapter adapter = new AndroidDatabaseAdapter(db);
+            long recordId = performCalvingRegistration(adapter, damId, calfName, sireId, sex, survival, weight, dateStr, notes);
+            DatabaseHelper.logAudit(db, "RECORD_CALVING", "BREEDING", recordId, "Recorded calving for Dam ID: " + damId + " | Offspring: " + calfName);
+
+            Toast.makeText(this, "Calving Registered Successfully", Toast.LENGTH_LONG).show();
+            finish();
+        } catch (Exception e) {
+            Toast.makeText(this, "Error saving calving: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public static long performCalvingRegistration(DatabaseAdapter db, int damId, String calfName, String sireId, String sex, String survival, double weight, String dateStr, String notes) {
         db.beginTransaction();
         try {
             long offspringId = -1;
             if ("Alive".equalsIgnoreCase(survival)) {
-                ContentValues calfValues = new ContentValues();
+                Map<String, Object> calfValues = new HashMap<>();
                 calfValues.put("name", calfName);
                 calfValues.put("breed_id", 1);
                 calfValues.put("gender", sex);
@@ -172,7 +189,7 @@ public class RegisterCalvingActivity extends AppCompatActivity {
                 offspringId = db.insert("animas", null, calfValues);
             }
 
-            ContentValues calvingValues = new ContentValues();
+            Map<String, Object> calvingValues = new HashMap<>();
             calvingValues.put("dam_id", damId);
             calvingValues.put("sire_id", sireId);
             calvingValues.put("birth_date", dateStr);
@@ -185,22 +202,17 @@ public class RegisterCalvingActivity extends AppCompatActivity {
             long recordId = db.insert("calving_records", null, calvingValues);
 
             // Update Dam's status to Lactating & Calved, and mark pending breeding record as Calved
-            ContentValues damStatus = new ContentValues();
+            Map<String, Object> damStatus = new HashMap<>();
             damStatus.put("lactation_status", "Lactating");
             damStatus.put("repro_status", "Calved");
             db.update("animas", damStatus, "id=?", new String[]{String.valueOf(damId)});
 
-            ContentValues breedingStatus = new ContentValues();
+            Map<String, Object> breedingStatus = new HashMap<>();
             breedingStatus.put("status", "Calved");
             db.update("breeding_records", breedingStatus, "animal_id=? AND status='Pregnant'", new String[]{String.valueOf(damId)});
 
             db.setTransactionSuccessful();
-            DatabaseHelper.logAudit(db, "RECORD_CALVING", "BREEDING", recordId, "Recorded calving for Dam ID: " + damId + " | Offspring: " + calfName);
-
-            Toast.makeText(this, "Calving Registered Successfully", Toast.LENGTH_LONG).show();
-            finish();
-        } catch (Exception e) {
-            Toast.makeText(this, "Error saving calving: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            return recordId;
         } finally {
             db.endTransaction();
         }

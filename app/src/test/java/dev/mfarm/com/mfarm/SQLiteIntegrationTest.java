@@ -1,5 +1,6 @@
 package dev.mfarm.com.mfarm;
 
+import dev.mfarm.com.mfarm.dao.JdbcDatabaseAdapter;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -252,18 +253,9 @@ public class SQLiteIntegrationTest {
         assertEquals(1, rPre.getInt(1));
         rPre.close();
 
-        // Execute saveCalving() transaction logic
-        conn.setAutoCommit(false);
-        try {
-            stmt.execute("UPDATE animas SET repro_status = 'Calved', lactation_status = 'Lactating' WHERE id = 15");
-            stmt.execute("UPDATE breeding_records SET status = 'Calved' WHERE animal_id = 15 AND status = 'Pregnant'");
-            conn.commit();
-        } catch (Exception e) {
-            conn.rollback();
-            throw e;
-        } finally {
-            conn.setAutoCommit(true);
-        }
+        // Execute RegisterCalvingActivity.performCalvingRegistration directly against SQLite JDBC
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        RegisterCalvingActivity.performCalvingRegistration(adapter, 15, "Calf 15", "1", "Female", "Alive", 30.0, "29-09-2026", "Test Notes");
 
         // Verify post-calving state: 0 pregnant breeding records, status updated to Calved
         ResultSet rPost = stmt.executeQuery("SELECT COUNT(*) FROM breeding_records WHERE animal_id = 15 AND status = 'Pregnant'");
