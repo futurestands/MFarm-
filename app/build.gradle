@@ -22,15 +22,15 @@ android {
 
     signingConfigs {
         release {
-            if (keystorePropertiesFile.exists() && keystoreProperties['KEYSTORE_FILE'] != null) {
-                storeFile file(keystoreProperties['KEYSTORE_FILE'])
-                storePassword keystoreProperties['KEYSTORE_PASSWORD']
-                keyAlias keystoreProperties['KEY_ALIAS']
-                keyPassword keystoreProperties['KEY_PASSWORD']
+            if (keystorePropertiesFile.exists() && keystoreProperties.getProperty('KEYSTORE_FILE') != null) {
+                storeFile rootProject.file(keystoreProperties.getProperty('KEYSTORE_FILE'))
+                storePassword keystoreProperties.getProperty('KEYSTORE_PASSWORD')
+                keyAlias keystoreProperties.getProperty('KEY_ALIAS')
+                keyPassword keystoreProperties.getProperty('KEY_PASSWORD')
             } else if (project.hasProperty('KEYSTORE_FILE')) {
-                storeFile file(project.property('KEYSTORE_FILE'))
+                storeFile rootProject.file(project.property('KEYSTORE_FILE'))
                 storePassword project.property('KEYSTORE_PASSWORD')
-                keyAlias project.property('KEY_ALIAS')
+                keyAlias project.property('KEY_PASSWORD')
                 keyPassword project.property('KEY_PASSWORD')
             }
         }
@@ -42,7 +42,10 @@ android {
             shrinkResources false
             debuggable false
             if (signingConfigs.release.storeFile != null) {
+                println "DEBUG: Attaching release signingConfig with storeFile: " + signingConfigs.release.storeFile
                 signingConfig signingConfigs.release
+            } else {
+                println "DEBUG: signingConfigs.release.storeFile is NULL!"
             }
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
