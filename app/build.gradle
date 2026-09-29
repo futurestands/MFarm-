@@ -30,7 +30,7 @@ android {
             } else if (project.hasProperty('KEYSTORE_FILE')) {
                 storeFile rootProject.file(project.property('KEYSTORE_FILE'))
                 storePassword project.property('KEYSTORE_PASSWORD')
-                keyAlias project.property('KEY_PASSWORD')
+                keyAlias project.property('KEY_ALIAS')
                 keyPassword project.property('KEY_PASSWORD')
             }
         }
@@ -42,10 +42,7 @@ android {
             shrinkResources false
             debuggable false
             if (signingConfigs.release.storeFile != null) {
-                println "DEBUG: Attaching release signingConfig with storeFile: " + signingConfigs.release.storeFile
                 signingConfig signingConfigs.release
-            } else {
-                println "DEBUG: signingConfigs.release.storeFile is NULL!"
             }
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
