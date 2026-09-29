@@ -48,37 +48,47 @@ public class VaccinationListFragment extends Fragment {
         adapter = new VaccinationAdapter(getActivity(), vaccinationList);
         listView.setAdapter(adapter);
 
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                promptMarkAsCompleted(vaccinationList.get(position));
+            }
+        });
+
         listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
-                final Vaccination v = vaccinationList.get(position);
-                if ("Completed".equals(v.getStatus())) return false;
-
-                new androidx.appcompat.app.AlertDialog.Builder(getActivity())
-                        .setTitle("Mark as Completed")
-                        .setMessage("Have you completed the " + v.getVaccineName() + " for " + v.getAnimalName() + "?")
-                        .setPositiveButton("Yes", new android.content.DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(android.content.DialogInterface dialog, int which) {
-                                android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(getContext() != null ? getContext() : getActivity());
-                                if (db != null) {
-                                    android.content.ContentValues values = new android.content.ContentValues();
-                                    values.put("status", "Completed");
-                                    db.update("vaccinations", values, "id=?", new String[]{String.valueOf(v.getId())});
-                                }
-                                AlarmScheduler.cancel(getActivity(), v.getId());
-                                AlarmScheduler.clearNotified(getActivity(), v.getId());
-                                loadVaccinations();
-                                adapter.notifyDataSetChanged();
-                            }
-                        })
-                        .setNegativeButton("No", null)
-                        .show();
+                promptMarkAsCompleted(vaccinationList.get(position));
                 return true;
             }
         });
 
         return view;
+    }
+
+    private void promptMarkAsCompleted(final Vaccination v) {
+        if ("Completed".equals(v.getStatus())) return;
+
+        new androidx.appcompat.app.AlertDialog.Builder(getActivity())
+                .setTitle("Mark as Completed")
+                .setMessage("Have you completed the " + v.getVaccineName() + " for " + v.getAnimalName() + "?")
+                .setPositiveButton("Yes", new android.content.DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(android.content.DialogInterface dialog, int which) {
+                        android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(getContext() != null ? getContext() : getActivity());
+                        if (db != null) {
+                            android.content.ContentValues values = new android.content.ContentValues();
+                            values.put("status", "Completed");
+                            db.update("vaccinations", values, "id=?", new String[]{String.valueOf(v.getId())});
+                        }
+                        AlarmScheduler.cancel(getActivity(), v.getId());
+                        AlarmScheduler.clearNotified(getActivity(), v.getId());
+                        loadVaccinations();
+                        adapter.notifyDataSetChanged();
+                    }
+                })
+                .setNegativeButton("No", null)
+                .show();
     }
 
     private void loadVaccinations() {
