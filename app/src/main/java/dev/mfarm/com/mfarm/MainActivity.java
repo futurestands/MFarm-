@@ -156,6 +156,10 @@ public class MainActivity extends AppCompatActivity
         } else if (id == R.id.nav_fin_dash) {
             _fragFinDash = FinancialDashboardFragment.newInstance();
             getSupportFragmentManager().beginTransaction().addToBackStack("F").replace(R.id.main_frame, _fragFinDash, "F").commit();
+        } else if (id == R.id.nav_crops) {
+            startActivity(new Intent(this, CropManagementActivity.class));
+        } else if (id == R.id.nav_disposal) {
+            startActivity(new Intent(this, DisposalActivity.class));
         } else if (id == R.id.nav_vaccination) {
             _fragVaccinationList = VaccinationListFragment.newInstance();
             getSupportFragmentManager().beginTransaction().addToBackStack("V").replace(R.id.main_frame, _fragVaccinationList, "V").commit();

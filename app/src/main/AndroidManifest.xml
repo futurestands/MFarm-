@@ -152,6 +152,16 @@
             android:label="Search Records"
             android:theme="@style/AppTheme.NoActionBar" />
 
+        <activity
+            android:name=".DisposalActivity"
+            android:label="Record Animal Disposal"
+            android:theme="@style/AppTheme.NoActionBar" />
+
+        <activity
+            android:name=".CropManagementActivity"
+            android:label="Crop Management"
+            android:theme="@style/AppTheme.NoActionBar" />
+
         <receiver android:name=".VaccinationReminderReceiver" android:exported="false" />
 
         <receiver

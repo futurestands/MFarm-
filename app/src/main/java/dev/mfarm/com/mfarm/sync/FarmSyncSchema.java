@@ -20,7 +20,14 @@ public final class FarmSyncSchema {
             "feed_types",
             "feed_consumption",
             "farm_profile",
-            "audit_logs"
+            "audit_logs",
+            "disposal_records",
+            "farm_locations",
+            "animal_movements",
+            "crop_plots",
+            "crop_seasons",
+            "crop_activities",
+            "enterprises"
     };
 
     private static final String TAG = "FarmSyncSchema";

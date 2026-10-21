@@ -55,6 +55,13 @@ public class SQLiteIntegrationTest {
         stmt.execute("CREATE TABLE feed_consumption (id INTEGER PRIMARY KEY AUTOINCREMENT, feed_id INTEGER, date TEXT, quantity REAL, cost REAL, group_or_animal_id TEXT, notes TEXT)");
         stmt.execute("CREATE TABLE farm_profile (id INTEGER PRIMARY KEY AUTOINCREMENT, farm_name TEXT, owner_name TEXT, location TEXT, phone TEXT, reg_number TEXT, currency_symbol TEXT, farm_size TEXT, notes TEXT)");
         stmt.execute("CREATE TABLE audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INTEGER, action TEXT, module TEXT, entity_id INTEGER, details TEXT)");
+        stmt.execute("CREATE TABLE disposal_records (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, animal_tag TEXT, sex TEXT, age_months REAL, disposal_date TEXT, method TEXT, cause_or_reason TEXT, price REAL DEFAULT 0, buyer_or_destination TEXT, notes TEXT)");
+        stmt.execute("CREATE TABLE farm_locations (id INTEGER PRIMARY KEY AUTOINCREMENT, location_name TEXT UNIQUE NOT NULL, description TEXT, is_default INTEGER DEFAULT 0)");
+        stmt.execute("CREATE TABLE animal_movements (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, animal_name TEXT, from_location TEXT, to_location TEXT, movement_date TEXT, reason TEXT, moved_by TEXT)");
+        stmt.execute("CREATE TABLE crop_plots (id INTEGER PRIMARY KEY AUTOINCREMENT, plot_name TEXT NOT NULL, crop_type TEXT NOT NULL, size_acres REAL DEFAULT 0, location_name TEXT, status TEXT DEFAULT 'Active')");
+        stmt.execute("CREATE TABLE crop_seasons (id INTEGER PRIMARY KEY AUTOINCREMENT, plot_id INTEGER, crop_type TEXT, season_name TEXT, start_date TEXT, end_date TEXT, status TEXT DEFAULT 'Ongoing')");
+        stmt.execute("CREATE TABLE crop_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, plot_id INTEGER, season_id INTEGER, activity_type TEXT, activity_date TEXT, inputs_used TEXT, quantity REAL DEFAULT 0, unit TEXT, yield_harvested REAL DEFAULT 0, cost REAL DEFAULT 0, notes TEXT)");
+        stmt.execute("CREATE TABLE enterprises (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, category TEXT, description TEXT)");
         stmt.execute("CREATE TABLE sync_index (uuid TEXT PRIMARY KEY NOT NULL, table_name TEXT NOT NULL, local_id INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, UNIQUE(table_name, local_id))");
         stmt.execute("CREATE TABLE sync_state (k TEXT PRIMARY KEY, v TEXT)");
         stmt.close();

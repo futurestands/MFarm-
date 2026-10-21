@@ -22,7 +22,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
 	public static String DB_PATH;
 	public static String DB_NAME = MainActivity.DB_NAME;
-	public static final int DB_VERSION = 2;
+	public static final int DB_VERSION = 3;
 	public static SQLiteDatabase database;
 	public final Context context;
 	public static final String ID_COLUMN = "_id";
@@ -249,10 +249,80 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 				"record_id INTEGER, " +
 				"details TEXT)");
 
+		db.execSQL("CREATE TABLE IF NOT EXISTS disposal_records (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"animal_id INTEGER, " +
+				"animal_tag TEXT, " +
+				"sex TEXT, " +
+				"age_months REAL, " +
+				"disposal_date TEXT, " +
+				"method TEXT, " +
+				"cause_or_reason TEXT, " +
+				"price REAL DEFAULT 0, " +
+				"buyer_or_destination TEXT, " +
+				"notes TEXT)");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS farm_locations (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"location_name TEXT UNIQUE NOT NULL, " +
+				"description TEXT, " +
+				"is_default INTEGER DEFAULT 0)");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS animal_movements (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"animal_id INTEGER, " +
+				"animal_name TEXT, " +
+				"from_location TEXT, " +
+				"to_location TEXT, " +
+				"movement_date TEXT, " +
+				"reason TEXT, " +
+				"moved_by TEXT)");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS crop_plots (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"plot_name TEXT NOT NULL, " +
+				"crop_type TEXT NOT NULL, " +
+				"size_acres REAL DEFAULT 0, " +
+				"location_name TEXT, " +
+				"status TEXT DEFAULT 'Active')");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS crop_seasons (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"plot_id INTEGER, " +
+				"crop_type TEXT, " +
+				"season_name TEXT, " +
+				"start_date TEXT, " +
+				"end_date TEXT, " +
+				"status TEXT DEFAULT 'Ongoing')");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS crop_activities (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"plot_id INTEGER, " +
+				"season_id INTEGER, " +
+				"activity_type TEXT, " +
+				"activity_date TEXT, " +
+				"inputs_used TEXT, " +
+				"quantity REAL DEFAULT 0, " +
+				"unit TEXT, " +
+				"yield_harvested REAL DEFAULT 0, " +
+				"cost REAL DEFAULT 0, " +
+				"notes TEXT)");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS enterprises (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"code TEXT UNIQUE NOT NULL, " +
+				"name TEXT NOT NULL, " +
+				"category TEXT, " +
+				"description TEXT)");
+
 		// Safe column additions
 		addColumnIfMissing(db, "animas", "photo_path", "TEXT");
 		addColumnIfMissing(db, "animas", "tag_number", "TEXT");
+		addColumnIfMissing(db, "animas", "ear_tag", "TEXT");
 		addColumnIfMissing(db, "animas", "species", "TEXT DEFAULT 'Cattle'");
+		addColumnIfMissing(db, "animas", "origin_source", "TEXT");
+		addColumnIfMissing(db, "animas", "birth_type", "TEXT DEFAULT 'Single'");
+		addColumnIfMissing(db, "animas", "location_name", "TEXT DEFAULT 'Main Farm'");
 		addColumnIfMissing(db, "animas", "lifecycle_status", "TEXT DEFAULT 'Active'");
 		addColumnIfMissing(db, "animas", "repro_status", "TEXT DEFAULT 'Open'");
 		addColumnIfMissing(db, "animas", "lactation_status", "TEXT DEFAULT 'Dry'");
@@ -262,6 +332,30 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 		addColumnIfMissing(db, "animas", "purchase_date", "TEXT");
 		addColumnIfMissing(db, "animas", "purchase_price", "REAL DEFAULT 0");
 		addColumnIfMissing(db, "animas", "notes", "TEXT");
+
+		addColumnIfMissing(db, "calving_records", "birth_type", "TEXT DEFAULT 'Single'");
+		addColumnIfMissing(db, "calving_records", "species", "TEXT DEFAULT 'Cattle'");
+
+		addColumnIfMissing(db, "income", "project_code", "TEXT DEFAULT 'GEN'");
+		addColumnIfMissing(db, "income", "enterprise", "TEXT DEFAULT 'General'");
+
+		addColumnIfMissing(db, "expenses", "project_code", "TEXT DEFAULT 'GEN'");
+		addColumnIfMissing(db, "expenses", "enterprise", "TEXT DEFAULT 'General'");
+
+		// Seed Default Locations
+		try {
+			db.execSQL("INSERT OR IGNORE INTO farm_locations (location_name, description, is_default) VALUES ('Main Farm', 'Primary Farm Location', 1)");
+			db.execSQL("INSERT OR IGNORE INTO farm_locations (location_name, description, is_default) VALUES ('Kicwamba', 'Kicwamba Outpost', 0)");
+			db.execSQL("INSERT OR IGNORE INTO farm_locations (location_name, description, is_default) VALUES ('Nkesiga', 'Nkesiga Grazing Block', 0)");
+		} catch (Exception ignored) {}
+
+		// Seed Default Enterprises
+		try {
+			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GT2', 'Goats / Flock Enterprise', 'Livestock', 'Goat breeding, milk, and live sales')");
+			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('CW1', 'Cattle Enterprise', 'Livestock', 'Cattle breeding, milk, and live sales')");
+			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('CF3', 'Coffee & Crop Enterprise', 'Crop', 'Coffee, groundnuts, and cash crops')");
+			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GEN', 'General Farm Overhead', 'General', 'Shared farm expenses and overheads')");
+		} catch (Exception ignored) {}
 
 		addColumnIfMissing(db, "vaccinations", "batch_number", "TEXT");
 		addColumnIfMissing(db, "vaccinations", "vet_name", "TEXT");
