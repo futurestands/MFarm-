@@ -162,6 +162,11 @@
             android:label="Crop Management"
             android:theme="@style/AppTheme.NoActionBar" />
 
+        <activity
+            android:name=".AnimalMovementActivity"
+            android:label="Farm Location Transfer"
+            android:theme="@style/AppTheme.NoActionBar" />
+
         <receiver android:name=".VaccinationReminderReceiver" android:exported="false" />
 
         <receiver

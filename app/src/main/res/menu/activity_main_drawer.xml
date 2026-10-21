@@ -58,6 +58,10 @@
             android:id="@+id/nav_disposal"
             android:icon="@drawable/ic_menu_manage"
             android:title="Offtake &amp; Animal Disposal" />
+        <item
+            android:id="@+id/nav_movement"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Farm Location Transfer" />
     </group>
 
     <item android:title="System &amp; Data">

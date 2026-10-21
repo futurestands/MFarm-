@@ -96,6 +96,13 @@ public class PhotoIntentActivity extends AppCompatActivity {
                     return;
                 }
 
+                String species = getIntent().getStringExtra("species");
+                if (species == null) species = "Cattle";
+                String earTag = getIntent().getStringExtra("ear_tag");
+                String originSource = getIntent().getStringExtra("origin_source");
+                String birthType = getIntent().getStringExtra("birth_type");
+                String locationName = getIntent().getStringExtra("location_name");
+
                 ContentValues collect = new ContentValues();
                 collect.put("name", animalName.trim());
                 collect.put("breed_id", breedId);
@@ -105,6 +112,12 @@ public class PhotoIntentActivity extends AppCompatActivity {
                 collect.put("body_color", bodyColor);
                 collect.put("dam_id", damId);
                 collect.put("sire_id", sireId);
+                collect.put("species", species);
+                collect.put("tag_number", (earTag != null && !earTag.trim().isEmpty()) ? earTag.trim() : animalName.trim());
+                collect.put("ear_tag", earTag);
+                collect.put("origin_source", originSource);
+                collect.put("birth_type", (birthType != null && !birthType.trim().isEmpty()) ? birthType : "Single");
+                collect.put("location_name", (locationName != null && !locationName.trim().isEmpty()) ? locationName : "Main Farm");
                 collect.put("photo_path", mCurrentPhotoPath);
                 collect.put("lifecycle_status", "Active");
                 collect.put("repro_status", "Open");
