@@ -62,7 +62,9 @@ public class SQLiteIntegrationTest {
         stmt.execute("CREATE TABLE crop_seasons (id INTEGER PRIMARY KEY AUTOINCREMENT, plot_id INTEGER, crop_type TEXT, season_name TEXT, start_date TEXT, end_date TEXT, status TEXT DEFAULT 'Ongoing')");
         stmt.execute("CREATE TABLE crop_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, plot_id INTEGER, season_id INTEGER, activity_type TEXT, activity_date TEXT, inputs_used TEXT, quantity REAL DEFAULT 0, unit TEXT, yield_harvested REAL DEFAULT 0, cost REAL DEFAULT 0, notes TEXT)");
         stmt.execute("CREATE TABLE enterprises (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, category TEXT, description TEXT)");
-        stmt.execute("CREATE TABLE livestock_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT UNIQUE NOT NULL, species TEXT NOT NULL, subtype TEXT NOT NULL, breed_or_strain TEXT, purpose TEXT, initial_quantity INTEGER NOT NULL, current_quantity INTEGER NOT NULL, acquisition_date TEXT NOT NULL, age_weeks REAL DEFAULT 0, source_supplier TEXT, location_name TEXT DEFAULT 'Main Farm', housing_unit TEXT, purchase_cost REAL DEFAULT 0, status TEXT DEFAULT 'Active', notes TEXT)");
+        stmt.execute("CREATE TABLE species_catalog (species_name TEXT PRIMARY KEY, gestation_days INTEGER DEFAULT 0, birth_term TEXT, offspring_term TEXT, female_term TEXT, male_term TEXT)");
+        stmt.execute("CREATE TABLE species_breeds (id INTEGER PRIMARY KEY AUTOINCREMENT, species_name TEXT NOT NULL, breed_name TEXT NOT NULL)");
+        stmt.execute("CREATE TABLE livestock_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT UNIQUE NOT NULL, species TEXT NOT NULL, subtype TEXT NOT NULL, breed_or_strain TEXT, purpose TEXT, initial_quantity INTEGER NOT NULL, current_quantity INTEGER NOT NULL, acquisition_date TEXT NOT NULL, age_weeks REAL DEFAULT 0, source_supplier TEXT, location_name TEXT DEFAULT 'Main Farm', housing_unit TEXT, purchase_cost REAL DEFAULT 0, project_code TEXT DEFAULT 'PL4', status TEXT DEFAULT 'Active', notes TEXT)");
         stmt.execute("CREATE TABLE batch_quantity_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT NOT NULL, event_type TEXT NOT NULL, event_date TEXT NOT NULL, quantity_change INTEGER NOT NULL, resulting_quantity INTEGER NOT NULL, unit_price REAL DEFAULT 0, total_amount REAL DEFAULT 0, source_ref TEXT, notes TEXT)");
         stmt.execute("CREATE TABLE egg_production_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT NOT NULL, log_date TEXT NOT NULL, eggs_collected INTEGER NOT NULL, broken_eggs INTEGER DEFAULT 0, notes TEXT)");
         stmt.execute("CREATE TABLE sync_index (uuid TEXT PRIMARY KEY NOT NULL, table_name TEXT NOT NULL, local_id INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, UNIQUE(table_name, local_id))");
@@ -528,5 +530,108 @@ public class SQLiteIntegrationTest {
 
         stmt.close();
         v3Conn.close();
+    }
+
+    // --- GAP 16: Location-Aware Batch Split Transfer (500 chicks -> 300 Main Farm, 200 Kicwamba, Total = 500) ---
+    @Test
+    public void testLocationAwareBatchSplitTransfer() throws Exception {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        String sourceBatchId = "BATCH-SPLIT-500";
+
+        // Register 500 chicks at Main Farm
+        dev.mfarm.com.mfarm.dao.BatchManager.createBatch(adapter, sourceBatchId, "Poultry", "Chicks", "Kuroiler", "Layers", 500, "29-09-2026", 1.0, "Supplier", "Main Farm", "Pen A", 0.0, "PL4", "Initial");
+        assertEquals(500, dev.mfarm.com.mfarm.dao.BatchManager.getCurrentQuantity(adapter, sourceBatchId));
+
+        // Transfer 200 chicks to Kicwamba
+        String destBatchId = dev.mfarm.com.mfarm.dao.BatchManager.recordBatchTransfer(adapter, sourceBatchId, 200, "29-09-2026", "Main Farm", "Kicwamba", "Grazing rotation");
+
+        // Verify Source Batch quantity = 300
+        assertEquals(300, dev.mfarm.com.mfarm.dao.BatchManager.getCurrentQuantity(adapter, sourceBatchId));
+        // Verify Destination Batch quantity = 200
+        assertEquals(200, dev.mfarm.com.mfarm.dao.BatchManager.getCurrentQuantity(adapter, destBatchId));
+
+        // Total farm-wide headcount = 500
+        Statement stmt = conn.createStatement();
+        ResultSet rsSum = stmt.executeQuery("SELECT SUM(current_quantity) FROM livestock_batches WHERE batch_id IN ('" + sourceBatchId + "', '" + destBatchId + "')");
+        assertTrue(rsSum.next());
+        assertEquals(500, rsSum.getInt(1));
+        rsSum.close();
+        stmt.close();
+
+        // Verify ledger invariants for both batches
+        assertTrue(dev.mfarm.com.mfarm.dao.BatchManager.verifyBatchLedgerInvariant(adapter, sourceBatchId));
+        assertTrue(dev.mfarm.com.mfarm.dao.BatchManager.verifyBatchLedgerInvariant(adapter, destBatchId));
+    }
+
+    // --- GAP 17: Configurable Enterprise Project Codes per Batch ---
+    @Test
+    public void testConfigurableEnterpriseCodesPerBatch() throws Exception {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+
+        dev.mfarm.com.mfarm.dao.BatchManager.createBatch(adapter, "BATCH-PL4", "Poultry", "Broilers", "Cobb 500", "Meat", 100, "29-09-2026", 4.0, "Supplier", "Main Farm", "Pen 1", 0.0, "PL4", "Poultry Batch");
+        dev.mfarm.com.mfarm.dao.BatchManager.createBatch(adapter, "BATCH-RB5", "Rabbit", "Growers", "Chinchilla", "Meat", 50, "29-09-2026", 6.0, "Supplier", "Main Farm", "Hutch B", 0.0, "RB5", "Rabbit Batch");
+
+        dev.mfarm.com.mfarm.dao.BatchManager.recordBatchSale(adapter, "BATCH-PL4", 20, "29-09-2026", 300000.0, "Hotel Buyer", "Broiler sale");
+        dev.mfarm.com.mfarm.dao.BatchManager.recordBatchSale(adapter, "BATCH-RB5", 10, "29-09-2026", 150000.0, "Restaurant Buyer", "Rabbit sale");
+
+        Statement stmt = conn.createStatement();
+        ResultSet rPL4 = stmt.executeQuery("SELECT amount FROM income WHERE project_code = 'PL4'");
+        assertTrue(rPL4.next());
+        assertEquals(300000.0, rPL4.getDouble(1), 0.01);
+        rPL4.close();
+
+        ResultSet rRB5 = stmt.executeQuery("SELECT amount FROM income WHERE project_code = 'RB5'");
+        assertTrue(rRB5.next());
+        assertEquals(150000.0, rRB5.getDouble(1), 0.01);
+        rRB5.close();
+        stmt.close();
+    }
+
+    // --- GAP 18: Batch Ledger Mathematical Invariant (current_quantity == SUM(quantity_change)) ---
+    @Test
+    public void testBatchLedgerMathematicalInvariant() throws Exception {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        String batchId = "BATCH-INVARIANT-100";
+
+        dev.mfarm.com.mfarm.dao.BatchManager.createBatch(adapter, batchId, "Poultry", "Layers", "ISA Brown", "Eggs", 100, "29-09-2026", 18.0, "Hatchery", "Main Farm", "Layer Coop", 0.0, "PL4", "Invariant Test");
+        dev.mfarm.com.mfarm.dao.BatchManager.recordMortality(adapter, batchId, 5, "01-10-2026", "Natural", "Death");
+        dev.mfarm.com.mfarm.dao.BatchManager.recordBatchSale(adapter, batchId, 10, "02-10-2026", 100000.0, "Buyer", "Sale");
+        dev.mfarm.com.mfarm.dao.BatchManager.recordBatchTransfer(adapter, batchId, 20, "03-10-2026", "Main Farm", "Nkesiga", "Transfer");
+        dev.mfarm.com.mfarm.dao.BatchManager.convertBatchToIndividual(adapter, batchId, "04-10-2026", "Prize Layer", "P-101", "Female", "Brown", "Selected hen");
+
+        // 100 - 5 - 10 - 20 - 1 = 64
+        assertEquals(64, dev.mfarm.com.mfarm.dao.BatchManager.getCurrentQuantity(adapter, batchId));
+        assertTrue(dev.mfarm.com.mfarm.dao.BatchManager.verifyBatchLedgerInvariant(adapter, batchId));
+    }
+
+    // --- GAP 19: Species Catalog Terminologies and Gestations ---
+    @Test
+    public void testSpeciesCatalogTerminologiesAndGestations() throws Exception {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+
+        dev.mfarm.com.mfarm.dao.SpeciesCatalog.SpeciesInfo cow = dev.mfarm.com.mfarm.dao.SpeciesCatalog.getSpeciesInfo(adapter, "Cattle");
+        assertEquals(283, cow.durationDays);
+        assertFalse(cow.isIncubation);
+        assertEquals("Calving", cow.birthTerm);
+
+        dev.mfarm.com.mfarm.dao.SpeciesCatalog.SpeciesInfo goat = dev.mfarm.com.mfarm.dao.SpeciesCatalog.getSpeciesInfo(adapter, "Goat");
+        assertEquals(150, goat.durationDays);
+        assertFalse(goat.isIncubation);
+        assertEquals("Kidding", goat.birthTerm);
+
+        dev.mfarm.com.mfarm.dao.SpeciesCatalog.SpeciesInfo sheep = dev.mfarm.com.mfarm.dao.SpeciesCatalog.getSpeciesInfo(adapter, "Sheep");
+        assertEquals(147, sheep.durationDays);
+        assertFalse(sheep.isIncubation);
+        assertEquals("Lambing", sheep.birthTerm);
+
+        dev.mfarm.com.mfarm.dao.SpeciesCatalog.SpeciesInfo rabbit = dev.mfarm.com.mfarm.dao.SpeciesCatalog.getSpeciesInfo(adapter, "Rabbit");
+        assertEquals(31, rabbit.durationDays);
+        assertFalse(rabbit.isIncubation);
+        assertEquals("Kindling", rabbit.birthTerm);
+
+        dev.mfarm.com.mfarm.dao.SpeciesCatalog.SpeciesInfo poultry = dev.mfarm.com.mfarm.dao.SpeciesCatalog.getSpeciesInfo(adapter, "Poultry");
+        assertEquals(21, poultry.durationDays);
+        assertTrue(poultry.isIncubation);
+        assertEquals("Hatching", poultry.birthTerm);
     }
 }

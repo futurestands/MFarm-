@@ -436,6 +436,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 		addColumnIfMissing(db, "expenses", "project_code", "TEXT DEFAULT 'GEN'");
 		addColumnIfMissing(db, "expenses", "enterprise", "TEXT DEFAULT 'General'");
 
+		addColumnIfMissing(db, "livestock_batches", "project_code", "TEXT DEFAULT 'PL4'");
+
 		// Seed Default Locations
 		try {
 			db.execSQL("INSERT OR IGNORE INTO farm_locations (location_name, description, is_default) VALUES ('Main Farm', 'Primary Farm Location', 1)");
@@ -445,6 +447,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
 		// Seed Default Enterprises
 		try {
+			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('PL4', 'Poultry Enterprise', 'Poultry', 'Chickens, layers, broilers, and eggs')");
+			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('RB5', 'Rabbitry Enterprise', 'Rabbits', 'Breeding bucks, does, and grower rabbits')");
 			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GT2', 'Goats / Flock Enterprise', 'Livestock', 'Goat breeding, milk, and live sales')");
 			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('CW1', 'Cattle Enterprise', 'Livestock', 'Cattle breeding, milk, and live sales')");
 			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('CF3', 'Coffee & Crop Enterprise', 'Crop', 'Coffee, groundnuts, and cash crops')");

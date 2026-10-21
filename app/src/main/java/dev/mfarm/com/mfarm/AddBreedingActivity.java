@@ -111,12 +111,29 @@ public class AddBreedingActivity extends AppCompatActivity {
                 String matingDate = dateFormatter.format(matingCalendar.getTime());
                 btnMatingDate.setText(matingDate);
 
-                // Default cattle gestation ~283 days
-                int gestationDays = 283;
+                int selectedPos = spinnerAnimals.getSelectedItemPosition();
+                int animalId = (animalIds != null && selectedPos >= 0 && selectedPos < animalIds.size()) ? animalIds.get(selectedPos) : -1;
+
+                String speciesName = "Cattle";
+                SQLiteDatabase db = getDb();
+                if (db != null && animalId != -1) {
+                    Cursor cSp = db.rawQuery("SELECT species FROM animas WHERE id = ?", new String[]{String.valueOf(animalId)});
+                    if (cSp != null && cSp.moveToFirst()) {
+                        String s = cSp.getString(0);
+                        if (s != null && !s.trim().isEmpty()) speciesName = s.trim();
+                        cSp.close();
+                    }
+                }
+
+                dev.mfarm.com.mfarm.dao.SpeciesCatalog.SpeciesInfo info = dev.mfarm.com.mfarm.dao.SpeciesCatalog.getSpeciesInfo(new dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter(db), speciesName);
+                int durationDays = info.durationDays;
+
                 Calendar birthCalendar = (Calendar) matingCalendar.clone();
-                birthCalendar.add(Calendar.DAY_OF_YEAR, gestationDays);
+                birthCalendar.add(Calendar.DAY_OF_YEAR, durationDays);
                 expectedBirthDateStr = dateFormatter.format(birthCalendar.getTime());
-                tvExpectedBirth.setText("Expected Birth Date (~" + gestationDays + " days): " + expectedBirthDateStr);
+
+                String termLabel = info.isIncubation ? "Expected Hatch Date" : "Expected " + info.birthTerm + " Date";
+                tvExpectedBirth.setText(termLabel + " (~" + durationDays + " days): " + expectedBirthDateStr);
             }
         }, matingCalendar.get(Calendar.YEAR), matingCalendar.get(Calendar.MONTH), matingCalendar.get(Calendar.DAY_OF_MONTH)).show();
     }
