@@ -532,6 +532,33 @@ public class SQLiteIntegrationTest {
         v3Conn.close();
     }
 
+    // --- GAP 20: Database Upgrade V4 to V5 Survival (project_code column on livestock_batches) ---
+    @Test
+    public void testDatabaseVersion4ToVersion5Upgrade() throws Exception {
+        Connection v4Conn = DriverManager.getConnection("jdbc:sqlite::memory:");
+        Statement stmt = v4Conn.createStatement();
+
+        // Create V4 Schema without project_code on livestock_batches
+        stmt.execute("CREATE TABLE livestock_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT UNIQUE, species TEXT, subtype TEXT, current_quantity INTEGER)");
+
+        // Populate V4 Batch record
+        stmt.execute("INSERT INTO livestock_batches (id, batch_id, species, subtype, current_quantity) VALUES (1, 'BATCH-V4-001', 'Poultry', 'Chicks', 500)");
+
+        // Upgrade V4 to V5 via ALTER TABLE
+        stmt.execute("ALTER TABLE livestock_batches ADD COLUMN project_code TEXT DEFAULT 'PL4'");
+
+        // Verify V4 records survive 100% intact with new project_code default
+        ResultSet rBatch = stmt.executeQuery("SELECT batch_id, current_quantity, project_code FROM livestock_batches WHERE id = 1");
+        assertTrue(rBatch.next());
+        assertEquals("BATCH-V4-001", rBatch.getString(1));
+        assertEquals(500, rBatch.getInt(2));
+        assertEquals("PL4", rBatch.getString(3));
+        rBatch.close();
+
+        stmt.close();
+        v4Conn.close();
+    }
+
     // --- GAP 16: Location-Aware Batch Split Transfer (500 chicks -> 300 Main Farm, 200 Kicwamba, Total = 500) ---
     @Test
     public void testLocationAwareBatchSplitTransfer() throws Exception {

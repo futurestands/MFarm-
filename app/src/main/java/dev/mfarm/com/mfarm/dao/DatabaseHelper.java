@@ -22,7 +22,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
 	public static String DB_PATH;
 	public static String DB_NAME = MainActivity.DB_NAME;
-	public static final int DB_VERSION = 4;
+	public static final int DB_VERSION = 5;
 	public static SQLiteDatabase database;
 	public final Context context;
 	public static final String ID_COLUMN = "_id";
