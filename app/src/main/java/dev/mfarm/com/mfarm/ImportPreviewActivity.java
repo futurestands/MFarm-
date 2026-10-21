@@ -193,6 +193,10 @@ public class ImportPreviewActivity extends AppCompatActivity {
                 .show();
     }
 
+    private List<Map<String, String>> breedingRows = new ArrayList<>();
+    private List<Map<String, String>> kiddingRows = new ArrayList<>();
+    private List<Map<String, String>> vaccineRows = new ArrayList<>();
+
     private void executeApprovedImport() {
         if (!isLoaded) {
             Toast.makeText(this, "Please load workbook first", Toast.LENGTH_SHORT).show();
@@ -206,14 +210,19 @@ public class ImportPreviewActivity extends AppCompatActivity {
         ExcelImporter.ImportSummary summary = new ExcelImporter.ImportSummary();
 
         int animCount = ExcelImporter.importFlockOverview(adapterDb, flockRows, summary);
+        int breedCount = ExcelImporter.importBreedingRecords(adapterDb, breedingRows, summary);
+        int kidCount = ExcelImporter.importKiddingRecords(adapterDb, kiddingRows, summary);
+        int vacCount = ExcelImporter.importVaccinationSchedules(adapterDb, vaccineRows, summary);
         int dispCount = ExcelImporter.importDisposalRecords(adapterDb, disposalRows, summary);
         int finCount = ExcelImporter.importFinancialRecords(adapterDb, financialRows, summary);
+
+        ExcelImporter.recordImportBatch(adapterDb, summary);
 
         new AlertDialog.Builder(this)
                 .setTitle("Import Complete")
                 .setMessage(String.format(Locale.US,
-                        "Successfully Imported:\n• %d Animals / Goats\n• %d Disposal Logs\n• %d Financial Entries\n• %d Duplicate Records Skipped",
-                        animCount, dispCount, finCount, summary.duplicateSkipped))
+                        "Successfully Imported Batch:\n• %d Animals / Goats\n• %d Breeding Records\n• %d Kidding Records\n• %d Vaccinations\n• %d Disposal Logs\n• %d Financial Entries\n• %d Duplicate Records Skipped",
+                        animCount, breedCount, kidCount, vacCount, dispCount, finCount, summary.duplicateSkipped))
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {

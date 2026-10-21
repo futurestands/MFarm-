@@ -172,6 +172,11 @@
             android:label="John.xlsx Import Preview"
             android:theme="@style/AppTheme.NoActionBar" />
 
+        <activity
+            android:name=".ImportHistoryActivity"
+            android:label="Workbook Import History"
+            android:theme="@style/AppTheme.NoActionBar" />
+
         <receiver android:name=".VaccinationReminderReceiver" android:exported="false" />
 
         <receiver
