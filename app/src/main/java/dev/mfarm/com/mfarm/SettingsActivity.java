@@ -48,6 +48,13 @@ public class SettingsActivity extends AppCompatActivity {
                 startActivity(new Intent(SettingsActivity.this, AuditLogActivity.class));
             }
         });
+
+        findViewById(R.id.btnNavImport).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(SettingsActivity.this, ImportPreviewActivity.class));
+            }
+        });
     }
 
     @Override

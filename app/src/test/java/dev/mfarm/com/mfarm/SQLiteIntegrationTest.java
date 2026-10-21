@@ -40,10 +40,10 @@ public class SQLiteIntegrationTest {
 
     private void createSchema(Connection c) throws Exception {
         Statement stmt = c.createStatement();
-        stmt.execute("CREATE TABLE animas (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, gender TEXT, dob TEXT, breed_id INTEGER, body_conf TEXT, dam_id TEXT, sire_id TEXT, lifecycle_status TEXT, repro_status TEXT, lactation_status TEXT, health_status TEXT, photo_path TEXT, image BLOB)");
+        stmt.execute("CREATE TABLE animas (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, tag_number TEXT, ear_tag TEXT, species TEXT DEFAULT 'Cattle', origin_source TEXT, birth_type TEXT DEFAULT 'Single', location_name TEXT DEFAULT 'Main Farm', gender TEXT, dob TEXT, breed_id INTEGER, body_conf TEXT, dam_id TEXT, sire_id TEXT, lifecycle_status TEXT, repro_status TEXT, lactation_status TEXT, health_status TEXT, photo_path TEXT, image BLOB, notes TEXT)");
         stmt.execute("CREATE TABLE milk_production (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, litres REAL, datetime TEXT, description TEXT)");
-        stmt.execute("CREATE TABLE expenses (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, amount REAL, date TEXT, description TEXT, related_animal_id INTEGER)");
-        stmt.execute("CREATE TABLE income (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, amount REAL, buyer TEXT, date TEXT, description TEXT, related_animal_id INTEGER)");
+        stmt.execute("CREATE TABLE expenses (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, amount REAL, date TEXT, description TEXT, related_animal_id INTEGER, project_code TEXT DEFAULT 'GEN', enterprise TEXT DEFAULT 'General')");
+        stmt.execute("CREATE TABLE income (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, amount REAL, buyer TEXT, date TEXT, description TEXT, related_animal_id INTEGER, project_code TEXT DEFAULT 'GEN', enterprise TEXT DEFAULT 'General')");
         stmt.execute("CREATE TABLE vaccinations (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, vaccine_name TEXT, scheduled_date TEXT, status TEXT, remarks TEXT)");
         stmt.execute("CREATE TABLE illness (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id TEXT, animal_name TEXT, illness_occured TEXT, sings_noted TEXT, date_occured TEXT, sync_datetime TEXT, treatment TEXT, diagnosis TEXT, medicine TEXT, treatment_date TEXT, others TEXT, medicine_quantity TEXT, pregnancy_status TEXT, comments TEXT, cost REAL)");
         stmt.execute("CREATE TABLE inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, item_name TEXT, category TEXT, quantity REAL, unit TEXT, min_quantity REAL)");
@@ -276,5 +276,144 @@ public class SQLiteIntegrationTest {
         rCalved.close();
 
         stmt.close();
+    }
+
+    // --- GAP 5: Multi-species Goat registration & location assignment ---
+    @Test
+    public void testGoatRegistrationAndSpeciesFiltering() throws Exception {
+        Statement stmt = conn.createStatement();
+        stmt.execute("INSERT INTO animas (name, species, gender, location_name, lifecycle_status) VALUES ('Doeling 101', 'Goat', 'Female', 'Kicwamba', 'Active')");
+        stmt.execute("INSERT INTO animas (name, species, gender, location_name, lifecycle_status) VALUES ('Cow Bella', 'Cattle', 'Female', 'Main Farm', 'Active')");
+
+        ResultSet rGoats = stmt.executeQuery("SELECT COUNT(*), location_name FROM animas WHERE species = 'Goat' AND lifecycle_status = 'Active'");
+        assertTrue(rGoats.next());
+        assertEquals(1, rGoats.getInt(1));
+        assertEquals("Kicwamba", rGoats.getString(2));
+        rGoats.close();
+
+        stmt.close();
+    }
+
+    // --- GAP 6: Location Transfer History ---
+    @Test
+    public void testFarmLocationTransferHistory() throws Exception {
+        Statement stmt = conn.createStatement();
+        stmt.execute("INSERT INTO animas (id, name, species, location_name) VALUES (50, 'Goat Buck 50', 'Goat', 'Kicwamba')");
+        stmt.execute("INSERT INTO animal_movements (animal_id, animal_name, from_location, to_location, movement_date, reason) VALUES (50, 'Goat Buck 50', 'Kicwamba', 'Nkesiga', '29-09-2026', 'Grazing rotation')");
+        stmt.execute("UPDATE animas SET location_name = 'Nkesiga' WHERE id = 50");
+
+        ResultSet rAnim = stmt.executeQuery("SELECT location_name FROM animas WHERE id = 50");
+        assertTrue(rAnim.next());
+        assertEquals("Nkesiga", rAnim.getString(1));
+        rAnim.close();
+
+        ResultSet rMove = stmt.executeQuery("SELECT from_location, to_location FROM animal_movements WHERE animal_id = 50");
+        assertTrue(rMove.next());
+        assertEquals("Kicwamba", rMove.getString(1));
+        assertEquals("Nkesiga", rMove.getString(2));
+        rMove.close();
+
+        stmt.close();
+    }
+
+    // --- GAP 7: Disposal and Sale Financial Link ---
+    @Test
+    public void testAnimalDisposalAndFinancialEntry() throws Exception {
+        Statement stmt = conn.createStatement();
+        stmt.execute("INSERT INTO animas (id, name, species, lifecycle_status) VALUES (60, 'Goat Doe 60', 'Goat', 'Active')");
+
+        // Disposal sale entry
+        stmt.execute("INSERT INTO disposal_records (animal_id, animal_tag, method, price) VALUES (60, 'Goat Doe 60', 'Sold', 250000.0)");
+        stmt.execute("UPDATE animas SET lifecycle_status = 'Sold' WHERE id = 60");
+        stmt.execute("INSERT INTO income (category, amount, date, description, related_animal_id, project_code) VALUES ('Animal Sales', 250000.0, '29-09-2026', 'Sale of Goat Doe 60', 60, 'GT2')");
+
+        ResultSet rDisp = stmt.executeQuery("SELECT lifecycle_status FROM animas WHERE id = 60");
+        assertTrue(rDisp.next());
+        assertEquals("Sold", rDisp.getString(1));
+        rDisp.close();
+
+        ResultSet rInc = stmt.executeQuery("SELECT amount, project_code FROM income WHERE related_animal_id = 60");
+        assertTrue(rInc.next());
+        assertEquals(250000.0, rInc.getDouble(1), 0.01);
+        assertEquals("GT2", rInc.getString(2));
+        rInc.close();
+
+        stmt.close();
+    }
+
+    // --- GAP 8: Crop Plot Activity & Expense Link ---
+    @Test
+    public void testCropPlotActivityAndExpense() throws Exception {
+        Statement stmt = conn.createStatement();
+        stmt.execute("INSERT INTO crop_plots (id, plot_name, crop_type, location_name) VALUES (1, 'Kicwamba Block A', 'Coffee', 'Kicwamba')");
+        stmt.execute("INSERT INTO crop_activities (plot_id, activity_type, cost) VALUES (1, 'Spraying (Coffee)', 45000.0)");
+        stmt.execute("INSERT INTO expenses (category, amount, project_code, description) VALUES ('Crop Inputs & Labor', 45000.0, 'CF3', 'Spraying for Coffee')");
+
+        ResultSet rExp = stmt.executeQuery("SELECT SUM(amount) FROM expenses WHERE project_code = 'CF3'");
+        assertTrue(rExp.next());
+        assertEquals(45000.0, rExp.getDouble(1), 0.01);
+        rExp.close();
+
+        stmt.close();
+    }
+
+    // --- GAP 9: Excel Importer Deduplication ---
+    @Test
+    public void testExcelImporterDeduplication() throws Exception {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        dev.mfarm.com.mfarm.sync.ExcelImporter.ImportSummary summary1 = new dev.mfarm.com.mfarm.sync.ExcelImporter.ImportSummary();
+
+        java.util.List<java.util.Map<String, String>> flockRows = new java.util.ArrayList<>();
+        java.util.Map<String, String> row1 = new java.util.HashMap<>();
+        row1.put("tag_no", "GT-323-2");
+        row1.put("sex", "F");
+        row1.put("dob", "12-07-2021");
+        row1.put("origin", "Born in herd");
+        flockRows.add(row1);
+
+        // Import First Pass
+        int imported1 = dev.mfarm.com.mfarm.sync.ExcelImporter.importFlockOverview(adapter, flockRows, summary1);
+        assertEquals(1, imported1);
+
+        // Import Second Pass (Duplicate)
+        dev.mfarm.com.mfarm.sync.ExcelImporter.ImportSummary summary2 = new dev.mfarm.com.mfarm.sync.ExcelImporter.ImportSummary();
+        int imported2 = dev.mfarm.com.mfarm.sync.ExcelImporter.importFlockOverview(adapter, flockRows, summary2);
+        assertEquals(0, imported2);
+        assertEquals(1, summary2.duplicateSkipped);
+    }
+
+    // --- GAP 10: Database Upgrade V2 to V3 Survival ---
+    @Test
+    public void testDatabaseVersion2ToVersion3Upgrade() throws Exception {
+        Connection v2Conn = DriverManager.getConnection("jdbc:sqlite::memory:");
+        Statement stmt = v2Conn.createStatement();
+
+        // Create V2 Schema
+        stmt.execute("CREATE TABLE animas (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, gender TEXT, dob TEXT, breed_id INTEGER)");
+        stmt.execute("CREATE TABLE milk_production (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, litres REAL, datetime TEXT)");
+
+        // Populate V2 Cattle & Milk Records
+        stmt.execute("INSERT INTO animas (id, name, gender, dob, breed_id) VALUES (1, 'Dairy Cow Daisy', 'Female', '10-05-2020', 1)");
+        stmt.execute("INSERT INTO milk_production (animal_id, litres, datetime) VALUES (1, 22.5, '28-09-2026')");
+
+        // Upgrade V2 to V3 via ALTER TABLE
+        stmt.execute("ALTER TABLE animas ADD COLUMN species TEXT DEFAULT 'Cattle'");
+        stmt.execute("ALTER TABLE animas ADD COLUMN location_name TEXT DEFAULT 'Main Farm'");
+        stmt.execute("CREATE TABLE IF NOT EXISTS disposal_records (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, method TEXT)");
+
+        // Verify V2 Cattle & Milk Records survive 100% intact
+        ResultSet rAnim = stmt.executeQuery("SELECT name, species FROM animas WHERE id = 1");
+        assertTrue(rAnim.next());
+        assertEquals("Dairy Cow Daisy", rAnim.getString(1));
+        assertEquals("Cattle", rAnim.getString(2));
+        rAnim.close();
+
+        ResultSet rMilk = stmt.executeQuery("SELECT litres FROM milk_production WHERE animal_id = 1");
+        assertTrue(rMilk.next());
+        assertEquals(22.5, rMilk.getDouble(1), 0.01);
+        rMilk.close();
+
+        stmt.close();
+        v2Conn.close();
     }
 }

@@ -43,23 +43,7 @@ public class JdbcDatabaseAdapter implements DatabaseAdapter {
                 }
             }
             ResultSet rs = ps.executeQuery();
-            ResultSetMetaData meta = rs.getMetaData();
-            int colCount = meta.getColumnCount();
-            String[] colNames = new String[colCount];
-            for (int i = 0; i < colCount; i++) {
-                colNames[i] = meta.getColumnName(i + 1);
-            }
-            MatrixCursor cursor = new MatrixCursor(colNames);
-            while (rs.next()) {
-                Object[] row = new Object[colCount];
-                for (int i = 0; i < colCount; i++) {
-                    row[i] = rs.getObject(i + 1);
-                }
-                cursor.addRow(row);
-            }
-            rs.close();
-            ps.close();
-            return cursor;
+            return new JdbcCursor(rs);
         } catch (Exception e) {
             throw new RuntimeException("JDBC query error: " + e.getMessage(), e);
         }
