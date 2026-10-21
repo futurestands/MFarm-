@@ -16,7 +16,7 @@ public final class FarmSnapshot {
     private static final String TAG = "FarmSnapshot";
     private static final String[] LINK_COLUMNS = {
             "animal_id", "item_id", "feed_id", "dam_id", "sire_id",
-            "related_animal_id", "offspring_id", "bull_id", "plot_id", "season_id"
+            "related_animal_id", "offspring_id", "bull_id", "plot_id", "season_id", "batch_id", "unit_id"
     };
 
     public static class ApplyResult {

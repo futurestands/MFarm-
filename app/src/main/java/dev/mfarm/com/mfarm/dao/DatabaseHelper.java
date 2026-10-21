@@ -22,7 +22,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
 	public static String DB_PATH;
 	public static String DB_NAME = MainActivity.DB_NAME;
-	public static final int DB_VERSION = 3;
+	public static final int DB_VERSION = 4;
 	public static SQLiteDatabase database;
 	public final Context context;
 	public static final String ID_COLUMN = "_id";
@@ -314,6 +314,100 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 				"name TEXT NOT NULL, " +
 				"category TEXT, " +
 				"description TEXT)");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS species_catalog (" +
+				"species_name TEXT PRIMARY KEY, " +
+				"gestation_days INTEGER DEFAULT 0, " +
+				"birth_term TEXT, " +
+				"offspring_term TEXT, " +
+				"female_term TEXT, " +
+				"male_term TEXT)");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS species_breeds (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"species_name TEXT NOT NULL, " +
+				"breed_name TEXT NOT NULL)");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS livestock_batches (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"batch_id TEXT UNIQUE NOT NULL, " +
+				"species TEXT NOT NULL, " +
+				"subtype TEXT NOT NULL, " +
+				"breed_or_strain TEXT, " +
+				"purpose TEXT, " +
+				"initial_quantity INTEGER NOT NULL, " +
+				"current_quantity INTEGER NOT NULL, " +
+				"acquisition_date TEXT NOT NULL, " +
+				"age_weeks REAL DEFAULT 0, " +
+				"source_supplier TEXT, " +
+				"location_name TEXT DEFAULT 'Main Farm', " +
+				"housing_unit TEXT, " +
+				"purchase_cost REAL DEFAULT 0, " +
+				"status TEXT DEFAULT 'Active', " +
+				"notes TEXT)");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS batch_quantity_ledger (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"batch_id TEXT NOT NULL, " +
+				"event_type TEXT NOT NULL, " +
+				"event_date TEXT NOT NULL, " +
+				"quantity_change INTEGER NOT NULL, " +
+				"resulting_quantity INTEGER NOT NULL, " +
+				"unit_price REAL DEFAULT 0, " +
+				"total_amount REAL DEFAULT 0, " +
+				"source_ref TEXT, " +
+				"notes TEXT)");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS egg_production_logs (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"batch_id TEXT NOT NULL, " +
+				"log_date TEXT NOT NULL, " +
+				"eggs_collected INTEGER NOT NULL, " +
+				"broken_eggs INTEGER DEFAULT 0, " +
+				"notes TEXT)");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS housing_units (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"unit_name TEXT UNIQUE NOT NULL, " +
+				"location_name TEXT DEFAULT 'Main Farm', " +
+				"capacity INTEGER DEFAULT 1000)");
+
+		// Seed Default Species Catalog
+		try {
+			db.execSQL("INSERT OR IGNORE INTO species_catalog VALUES ('Cattle', 283, 'Calving', 'Calf', 'Cow', 'Bull')");
+			db.execSQL("INSERT OR IGNORE INTO species_catalog VALUES ('Goat', 150, 'Kidding', 'Kid', 'Doe', 'Buck')");
+			db.execSQL("INSERT OR IGNORE INTO species_catalog VALUES ('Sheep', 147, 'Lambing', 'Lamb', 'Ewe', 'Ram')");
+			db.execSQL("INSERT OR IGNORE INTO species_catalog VALUES ('Rabbit', 31, 'Kindling', 'Kit', 'Doe', 'Buck')");
+			db.execSQL("INSERT OR IGNORE INTO species_catalog VALUES ('Poultry', 21, 'Hatching', 'Chick', 'Hen', 'Rooster')");
+		} catch (Exception ignored) {}
+
+		// Seed Default Breeds Catalog
+		try {
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Cattle', 'Friesian')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Cattle', 'Jersey')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Cattle', 'Ankole')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Cattle', 'Ayrshire')");
+
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Goat', 'Kalahari Red')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Goat', 'Boer')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Goat', 'Local East African')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Goat', 'Saanen')");
+
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Sheep', 'Dorper')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Sheep', 'Blackhead Persian')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Sheep', 'Local Fat-Tailed')");
+
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Poultry', 'Kuroiler')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Poultry', 'Sasso')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Poultry', 'ISA Brown')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Poultry', 'Broiler Cobb 500')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Poultry', 'Local Indigenous')");
+
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Rabbit', 'New Zealand White')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Rabbit', 'Californian')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Rabbit', 'Chinchilla')");
+			db.execSQL("INSERT OR IGNORE INTO species_breeds (species_name, breed_name) VALUES ('Rabbit', 'Local Mixed')");
+		} catch (Exception ignored) {}
 
 		// Safe column additions
 		addColumnIfMissing(db, "animas", "photo_path", "TEXT");

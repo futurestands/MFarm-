@@ -162,6 +162,8 @@ public class MainActivity extends AppCompatActivity
             startActivity(new Intent(this, DisposalActivity.class));
         } else if (id == R.id.nav_movement) {
             startActivity(new Intent(this, AnimalMovementActivity.class));
+        } else if (id == R.id.nav_batches) {
+            startActivity(new Intent(this, BatchListActivity.class));
         } else if (id == R.id.nav_vaccination) {
             _fragVaccinationList = VaccinationListFragment.newInstance();
             getSupportFragmentManager().beginTransaction().addToBackStack("V").replace(R.id.main_frame, _fragVaccinationList, "V").commit();

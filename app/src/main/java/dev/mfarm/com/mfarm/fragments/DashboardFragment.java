@@ -159,13 +159,28 @@ public class DashboardFragment extends Fragment {
             cProfile.close();
         } catch (Exception ignored) {}
 
-        // Total Animals
+        // Total Animals (Individual + Batch Headcount)
         try {
-            Cursor cAnimals = db.rawQuery("SELECT COUNT(*) FROM animas WHERE lifecycle_status = 'Active'", null);
+            int indivCount = 0;
+            int batchCount = 0;
+            Cursor cAnimals = db.rawQuery("SELECT COUNT(*) FROM animas WHERE lifecycle_status = 'Active' OR lifecycle_status IS NULL", null);
             if (cAnimals.moveToFirst()) {
-                tvStatAnimals.setText(String.valueOf(cAnimals.getInt(0)));
+                indivCount = cAnimals.getInt(0);
             }
             cAnimals.close();
+
+            Cursor cBatches = db.rawQuery("SELECT SUM(current_quantity) FROM livestock_batches WHERE status = 'Active' OR status IS NULL", null);
+            if (cBatches.moveToFirst()) {
+                batchCount = cBatches.getInt(0);
+            }
+            cBatches.close();
+
+            int totalHeadcount = indivCount + batchCount;
+            if (batchCount > 0) {
+                tvStatAnimals.setText(totalHeadcount + " (" + indivCount + " Ind. / " + batchCount + " Batch)");
+            } else {
+                tvStatAnimals.setText(String.valueOf(indivCount));
+            }
         } catch (Exception ignored) {}
 
         // Today's Milk

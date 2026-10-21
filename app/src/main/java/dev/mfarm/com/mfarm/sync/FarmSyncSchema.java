@@ -27,7 +27,13 @@ public final class FarmSyncSchema {
             "crop_plots",
             "crop_seasons",
             "crop_activities",
-            "enterprises"
+            "enterprises",
+            "species_catalog",
+            "species_breeds",
+            "livestock_batches",
+            "batch_quantity_ledger",
+            "egg_production_logs",
+            "housing_units"
     };
 
     private static final String TAG = "FarmSyncSchema";

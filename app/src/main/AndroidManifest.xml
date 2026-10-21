@@ -177,6 +177,16 @@
             android:label="Workbook Import History"
             android:theme="@style/AppTheme.NoActionBar" />
 
+        <activity
+            android:name=".BatchRegistrationActivity"
+            android:label="Batch Registration"
+            android:theme="@style/AppTheme.NoActionBar" />
+
+        <activity
+            android:name=".BatchListActivity"
+            android:label="Batch &amp; Flock Manager"
+            android:theme="@style/AppTheme.NoActionBar" />
+
         <receiver android:name=".VaccinationReminderReceiver" android:exported="false" />
 
         <receiver

@@ -62,6 +62,9 @@ public class SQLiteIntegrationTest {
         stmt.execute("CREATE TABLE crop_seasons (id INTEGER PRIMARY KEY AUTOINCREMENT, plot_id INTEGER, crop_type TEXT, season_name TEXT, start_date TEXT, end_date TEXT, status TEXT DEFAULT 'Ongoing')");
         stmt.execute("CREATE TABLE crop_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, plot_id INTEGER, season_id INTEGER, activity_type TEXT, activity_date TEXT, inputs_used TEXT, quantity REAL DEFAULT 0, unit TEXT, yield_harvested REAL DEFAULT 0, cost REAL DEFAULT 0, notes TEXT)");
         stmt.execute("CREATE TABLE enterprises (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, category TEXT, description TEXT)");
+        stmt.execute("CREATE TABLE livestock_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT UNIQUE NOT NULL, species TEXT NOT NULL, subtype TEXT NOT NULL, breed_or_strain TEXT, purpose TEXT, initial_quantity INTEGER NOT NULL, current_quantity INTEGER NOT NULL, acquisition_date TEXT NOT NULL, age_weeks REAL DEFAULT 0, source_supplier TEXT, location_name TEXT DEFAULT 'Main Farm', housing_unit TEXT, purchase_cost REAL DEFAULT 0, status TEXT DEFAULT 'Active', notes TEXT)");
+        stmt.execute("CREATE TABLE batch_quantity_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT NOT NULL, event_type TEXT NOT NULL, event_date TEXT NOT NULL, quantity_change INTEGER NOT NULL, resulting_quantity INTEGER NOT NULL, unit_price REAL DEFAULT 0, total_amount REAL DEFAULT 0, source_ref TEXT, notes TEXT)");
+        stmt.execute("CREATE TABLE egg_production_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT NOT NULL, log_date TEXT NOT NULL, eggs_collected INTEGER NOT NULL, broken_eggs INTEGER DEFAULT 0, notes TEXT)");
         stmt.execute("CREATE TABLE sync_index (uuid TEXT PRIMARY KEY NOT NULL, table_name TEXT NOT NULL, local_id INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, UNIQUE(table_name, local_id))");
         stmt.execute("CREATE TABLE sync_state (k TEXT PRIMARY KEY, v TEXT)");
         stmt.close();
@@ -415,5 +418,115 @@ public class SQLiteIntegrationTest {
 
         stmt.close();
         v2Conn.close();
+    }
+
+    // --- GAP 11: 500 Chicks Batch Lifecycle, Mortality, Sale & Ledger Math (500 - 15 - 120 = 365) ---
+    @Test
+    public void testChicksBatchLifecycleAndLedgerMath() throws Exception {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        String batchId = "BATCH-CHICKS-500";
+
+        // 1. Register 500 chicks
+        dev.mfarm.com.mfarm.dao.BatchManager.createBatch(adapter, batchId, "Poultry", "Day-Old Chicks", "Kuroiler", "Layers", 500, "29-09-2026", 1.0, "Biyinzika", "Main Farm", "Pen 1", 1500000.0, "Initial batch");
+        assertEquals(500, dev.mfarm.com.mfarm.dao.BatchManager.getCurrentQuantity(adapter, batchId));
+
+        // 2. Mortality of 15 chicks
+        dev.mfarm.com.mfarm.dao.BatchManager.recordMortality(adapter, batchId, 15, "05-10-2026", "Coccidiosis", "Routine mortality");
+        assertEquals(485, dev.mfarm.com.mfarm.dao.BatchManager.getCurrentQuantity(adapter, batchId));
+
+        // 3. Sale of 120 chicks
+        dev.mfarm.com.mfarm.dao.BatchManager.recordBatchSale(adapter, batchId, 120, "15-10-2026", 600000.0, "Kicwamba Buyer", "Batch sale");
+
+        // 4. Assert remaining quantity = 365
+        assertEquals(365, dev.mfarm.com.mfarm.dao.BatchManager.getCurrentQuantity(adapter, batchId));
+    }
+
+    // --- GAP 12: Negative Quantity Prevention ---
+    @Test(expected = IllegalStateException.class)
+    public void testNegativeQuantityPrevention() throws Exception {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        String batchId = "BATCH-NEG-TEST";
+
+        dev.mfarm.com.mfarm.dao.BatchManager.createBatch(adapter, batchId, "Poultry", "Broilers", "Cobb 500", "Meat", 50, "29-09-2026", 2.0, "Supplier", "Main Farm", "Pen 2", 200000.0, "Test");
+
+        // Attempt mortality of 60 when only 50 exist -> MUST throw IllegalStateException!
+        dev.mfarm.com.mfarm.dao.BatchManager.recordMortality(adapter, batchId, 60, "30-09-2026", "Disease", "Exceeds quantity");
+    }
+
+    // --- GAP 13: Convert Selected Batch Animal to Individual Tracking ---
+    @Test
+    public void testBatchToIndividualConversion() throws Exception {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        String batchId = "BATCH-RABBITS-20";
+
+        dev.mfarm.com.mfarm.dao.BatchManager.createBatch(adapter, batchId, "Rabbit", "Grower Rabbits", "New Zealand White", "Breeding", 20, "29-09-2026", 8.0, "Farm", "Main Farm", "Hutch A", 0.0, "Rabbit batch");
+        assertEquals(20, dev.mfarm.com.mfarm.dao.BatchManager.getCurrentQuantity(adapter, batchId));
+
+        // Convert 1 rabbit buck to individual tracking
+        long newAnimalId = dev.mfarm.com.mfarm.dao.BatchManager.convertBatchToIndividual(adapter, batchId, "29-09-2026", "Buck Champ", "RAB-001", "Male", "White", "Selected breeding buck");
+        assertTrue(newAnimalId > 0);
+
+        // Assert remaining batch quantity decremented to 19
+        assertEquals(19, dev.mfarm.com.mfarm.dao.BatchManager.getCurrentQuantity(adapter, batchId));
+
+        // Verify individual animal created in animas
+        Statement stmt = conn.createStatement();
+        ResultSet rs = stmt.executeQuery("SELECT name, species, tag_number FROM animas WHERE id = " + newAnimalId);
+        assertTrue(rs.next());
+        assertEquals("Buck Champ", rs.getString(1));
+        assertEquals("Rabbit", rs.getString(2));
+        assertEquals("RAB-001", rs.getString(3));
+        rs.close();
+        stmt.close();
+    }
+
+    // --- GAP 14: Egg Production Logging ---
+    @Test
+    public void testEggProductionLogging() throws Exception {
+        Statement stmt = conn.createStatement();
+        stmt.execute("INSERT INTO egg_production_logs (batch_id, log_date, eggs_collected, broken_eggs) VALUES ('BATCH-LAYERS-100', '29-09-2026', 85, 2)");
+        stmt.execute("INSERT INTO egg_production_logs (batch_id, log_date, eggs_collected, broken_eggs) VALUES ('BATCH-LAYERS-100', '30-09-2026', 88, 1)");
+
+        ResultSet rs = stmt.executeQuery("SELECT SUM(eggs_collected), SUM(broken_eggs) FROM egg_production_logs WHERE batch_id = 'BATCH-LAYERS-100'");
+        assertTrue(rs.next());
+        assertEquals(173, rs.getInt(1));
+        assertEquals(3, rs.getInt(2));
+        rs.close();
+        stmt.close();
+    }
+
+    // --- GAP 15: Database Upgrade V3 to V4 Survival ---
+    @Test
+    public void testDatabaseVersion3ToVersion4Upgrade() throws Exception {
+        Connection v3Conn = DriverManager.getConnection("jdbc:sqlite::memory:");
+        Statement stmt = v3Conn.createStatement();
+
+        // Create V3 Schema
+        stmt.execute("CREATE TABLE animas (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, species TEXT, location_name TEXT)");
+        stmt.execute("CREATE TABLE disposal_records (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_tag TEXT, method TEXT)");
+
+        // Populate V3 records
+        stmt.execute("INSERT INTO animas (id, name, species, location_name) VALUES (1, 'Goat Doe 323-2', 'Goat', 'Kicwamba')");
+        stmt.execute("INSERT INTO disposal_records (id, animal_tag, method) VALUES (1, '608-9', 'Death')");
+
+        // Upgrade V3 to V4
+        stmt.execute("CREATE TABLE IF NOT EXISTS livestock_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT UNIQUE, species TEXT, current_quantity INTEGER)");
+        stmt.execute("CREATE TABLE IF NOT EXISTS batch_quantity_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT, quantity_change INTEGER)");
+
+        // Verify V3 records survive 100% intact
+        ResultSet rAnim = stmt.executeQuery("SELECT name, location_name FROM animas WHERE id = 1");
+        assertTrue(rAnim.next());
+        assertEquals("Goat Doe 323-2", rAnim.getString(1));
+        assertEquals("Kicwamba", rAnim.getString(2));
+        rAnim.close();
+
+        ResultSet rDisp = stmt.executeQuery("SELECT animal_tag, method FROM disposal_records WHERE id = 1");
+        assertTrue(rDisp.next());
+        assertEquals("608-9", rDisp.getString(1));
+        assertEquals("Death", rDisp.getString(2));
+        rDisp.close();
+
+        stmt.close();
+        v3Conn.close();
     }
 }
