@@ -4,6 +4,9 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 
+import dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter;
+import dev.mfarm.com.mfarm.dao.DatabaseAdapter;
+
 public final class FarmSyncSchema {
     public static final String[] TABLES = {
             "animas",
@@ -42,6 +45,26 @@ public final class FarmSyncSchema {
 
     private FarmSyncSchema() {}
 
+    public static void install(DatabaseAdapter db) {
+        if (db == null) return;
+        if (db instanceof AndroidDatabaseAdapter) {
+            install(((AndroidDatabaseAdapter) db).getSQLiteDatabase());
+            return;
+        }
+        db.query("CREATE TABLE IF NOT EXISTS sync_index ("
+                + "uuid TEXT PRIMARY KEY NOT NULL, "
+                + "table_name TEXT NOT NULL, "
+                + "local_id INTEGER NOT NULL, "
+                + "updated_at INTEGER NOT NULL, "
+                + "deleted INTEGER NOT NULL DEFAULT 0, "
+                + "UNIQUE(table_name, local_id))", null);
+        db.query("CREATE TABLE IF NOT EXISTS sync_state (k TEXT PRIMARY KEY, v TEXT)", null);
+        db.query("INSERT OR IGNORE INTO sync_state(k, v) VALUES('applying', '0')", null);
+        for (int i = 0; i < TABLES.length; i++) {
+            backfill(db, TABLES[i]);
+        }
+    }
+
     public static void install(SQLiteDatabase db) {
         if (db == null) {
             return;
@@ -59,6 +82,13 @@ public final class FarmSyncSchema {
         for (int i = 0; i < TABLES.length; i++) {
             installTriggers(db, TABLES[i]);
             backfill(db, TABLES[i]);
+        }
+    }
+
+    public static void setApplying(DatabaseAdapter db, boolean applying) {
+        if (db == null) return;
+        if (db instanceof AndroidDatabaseAdapter) {
+            setApplying(((AndroidDatabaseAdapter) db).getSQLiteDatabase(), applying);
         }
     }
 
@@ -90,6 +120,14 @@ public final class FarmSyncSchema {
                 + "UPDATE sync_index SET deleted=1, updated_at=CAST(strftime('%s','now') AS INTEGER)*1000 "
                 + "WHERE table_name='" + table + "' AND local_id=OLD.id; "
                 + "END");
+    }
+
+    private static void backfill(DatabaseAdapter db, String table) {
+        try {
+            db.query("INSERT OR IGNORE INTO sync_index(uuid, table_name, local_id, updated_at, deleted) "
+                    + "SELECT lower(hex(randomblob(16))), '" + table + "', id, "
+                    + "CAST(strftime('%s','now') AS INTEGER)*1000, 0 FROM " + table, null);
+        } catch (Exception ignored) {}
     }
 
     private static void backfill(SQLiteDatabase db, String table) {

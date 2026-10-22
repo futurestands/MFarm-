@@ -842,4 +842,130 @@ public class SQLiteIntegrationTest {
         String encoded = dev.mfarm.com.mfarm.sync.ExcelExporter.encodeCsv(dangerousFormula);
         assertTrue(encoded.contains("'=SUM(1+1)"));
     }
+
+    // --- GAP 26: Two-Device Bidirectional Data Transfer & Merger (Phone A <-> Phone B) ---
+    @Test
+    public void testTwoDeviceSyncBidirectionalTransferAndMerger() throws Exception {
+        Connection phoneA = DriverManager.getConnection("jdbc:sqlite::memory:");
+        Connection phoneB = DriverManager.getConnection("jdbc:sqlite::memory:");
+
+        createSchema(phoneA);
+        createSchema(phoneB);
+
+        JdbcDatabaseAdapter adapterA = new JdbcDatabaseAdapter(phoneA);
+        JdbcDatabaseAdapter adapterB = new JdbcDatabaseAdapter(phoneB);
+
+        // Phone A creates Cow Daisy and Goat Billy
+        Statement stmtA = phoneA.createStatement();
+        stmtA.execute("INSERT INTO animas (id, name, species, gender) VALUES (1, 'Cow Daisy', 'Cattle', 'Female')");
+        stmtA.execute("INSERT INTO animas (id, name, species, gender) VALUES (2, 'Goat Billy', 'Goat', 'Male')");
+
+        dev.mfarm.com.mfarm.sync.FarmSyncSchema.install(adapterA);
+        dev.mfarm.com.mfarm.sync.FarmSyncSchema.install(adapterB);
+
+        // Phone A exports snapshot
+        org.json.JSONObject snapA = dev.mfarm.com.mfarm.sync.FarmSnapshot.capture(adapterA, new dev.mfarm.com.mfarm.sync.FarmIdentity("FARM-123", "Main Farm", "K7P2-QM4N", "owner", "DEV-A"));
+
+        // Phone B captures empty local snapshot and merges with Phone A snapshot
+        org.json.JSONObject snapBLocal = dev.mfarm.com.mfarm.sync.FarmSnapshot.capture(adapterB, new dev.mfarm.com.mfarm.sync.FarmIdentity("FARM-123", "Main Farm", "K7P2-QM4N", "member", "DEV-B"));
+        org.json.JSONObject mergedOnB = dev.mfarm.com.mfarm.sync.FarmMerger.merge(snapBLocal, snapA);
+
+        // Phone B applies merged snapshot
+        dev.mfarm.com.mfarm.sync.FarmSnapshot.applyWithDetails(adapterB, mergedOnB);
+
+        // Assert Phone B has Cow Daisy and Goat Billy
+        Statement stmtB = phoneB.createStatement();
+        ResultSet rB1 = stmtB.executeQuery("SELECT COUNT(*) FROM animas WHERE name IN ('Cow Daisy', 'Goat Billy')");
+        assertTrue(rB1.next());
+        assertEquals(2, rB1.getInt(1));
+        rB1.close();
+
+        // Phone B registers 500 Chicks Batch
+        dev.mfarm.com.mfarm.dao.BatchManager.createBatch(adapterB, "BATCH-CHICKS-500", "Poultry", "Chicks", "Kuroiler", "Layers", 500, "29-09-2026", 1.0, "Supplier", "Main Farm", "Pen 1", 0.0, "PL4", "Batch on B");
+        dev.mfarm.com.mfarm.sync.FarmSyncSchema.install(adapterB);
+
+        // Phone B exports snapshot and Phone A merges it
+        org.json.JSONObject snapB = dev.mfarm.com.mfarm.sync.FarmSnapshot.capture(adapterB, new dev.mfarm.com.mfarm.sync.FarmIdentity("FARM-123", "Main Farm", "K7P2-QM4N", "member", "DEV-B"));
+        org.json.JSONObject snapALocal = dev.mfarm.com.mfarm.sync.FarmSnapshot.capture(adapterA, new dev.mfarm.com.mfarm.sync.FarmIdentity("FARM-123", "Main Farm", "K7P2-QM4N", "owner", "DEV-A"));
+        org.json.JSONObject mergedOnA = dev.mfarm.com.mfarm.sync.FarmMerger.merge(snapALocal, snapB);
+
+        dev.mfarm.com.mfarm.sync.FarmSnapshot.applyWithDetails(adapterA, mergedOnA);
+
+        // Assert Phone A now contains 500 Chicks Batch
+        ResultSet rA2 = stmtA.executeQuery("SELECT current_quantity FROM livestock_batches WHERE batch_id = 'BATCH-CHICKS-500'");
+        assertTrue(rA2.next());
+        assertEquals(500, rA2.getInt(1));
+        rA2.close();
+
+        stmtA.close();
+        stmtB.close();
+        phoneA.close();
+        phoneB.close();
+    }
+
+    // --- GAP 27: Two-Device Batch Transfer, Mortality & Headcount Merge ---
+    @Test
+    public void testTwoDeviceSyncBatchTransferMortalityAndSalesHeadcount() throws Exception {
+        Connection phoneA = DriverManager.getConnection("jdbc:sqlite::memory:");
+        Connection phoneB = DriverManager.getConnection("jdbc:sqlite::memory:");
+
+        createSchema(phoneA);
+        createSchema(phoneB);
+
+        JdbcDatabaseAdapter adapterA = new JdbcDatabaseAdapter(phoneA);
+        JdbcDatabaseAdapter adapterB = new JdbcDatabaseAdapter(phoneB);
+
+        String batchId = "BATCH-POULTRY-500";
+        dev.mfarm.com.mfarm.dao.BatchManager.createBatch(adapterA, batchId, "Poultry", "Chicks", "Kuroiler", "Layers", 500, "29-09-2026", 1.0, "Supplier", "Main Farm", "Pen 1", 0.0, "PL4", "Initial");
+
+        dev.mfarm.com.mfarm.sync.FarmSyncSchema.install(adapterA);
+        dev.mfarm.com.mfarm.sync.FarmSyncSchema.install(adapterB);
+
+        // Sync Phone A to Phone B
+        org.json.JSONObject snapA1 = dev.mfarm.com.mfarm.sync.FarmSnapshot.capture(adapterA, new dev.mfarm.com.mfarm.sync.FarmIdentity("FARM-777", "Test Farm", "JOIN-7777", "owner", "DEV-A"));
+        org.json.JSONObject snapB1Local = dev.mfarm.com.mfarm.sync.FarmSnapshot.capture(adapterB, new dev.mfarm.com.mfarm.sync.FarmIdentity("FARM-777", "Test Farm", "JOIN-7777", "member", "DEV-B"));
+        dev.mfarm.com.mfarm.sync.FarmSnapshot.applyWithDetails(adapterB, dev.mfarm.com.mfarm.sync.FarmMerger.merge(snapB1Local, snapA1));
+
+        // Phone B records 15 mortality, 120 sales, and 100 transfer to Kicwamba
+        dev.mfarm.com.mfarm.dao.BatchManager.recordMortality(adapterB, batchId, 15, "05-10-2026", "Disease", "Mortality");
+        dev.mfarm.com.mfarm.dao.BatchManager.recordBatchSale(adapterB, batchId, 120, "10-10-2026", 600000.0, "Buyer B", "Sale");
+        String destBatchId = dev.mfarm.com.mfarm.dao.BatchManager.recordBatchTransfer(adapterB, batchId, 100, "12-10-2026", "Main Farm", "Kicwamba", "Outpost transfer");
+
+        // Sync Phone B back to Phone A
+        dev.mfarm.com.mfarm.sync.FarmSyncSchema.install(adapterB);
+        org.json.JSONObject snapB2 = dev.mfarm.com.mfarm.sync.FarmSnapshot.capture(adapterB, new dev.mfarm.com.mfarm.sync.FarmIdentity("FARM-777", "Test Farm", "JOIN-7777", "member", "DEV-B"));
+        org.json.JSONObject snapA2Local = dev.mfarm.com.mfarm.sync.FarmSnapshot.capture(adapterA, new dev.mfarm.com.mfarm.sync.FarmIdentity("FARM-777", "Test Farm", "JOIN-7777", "owner", "DEV-A"));
+        dev.mfarm.com.mfarm.sync.FarmSnapshot.applyWithDetails(adapterA, dev.mfarm.com.mfarm.sync.FarmMerger.merge(snapA2Local, snapB2));
+
+        // Verify Phone A's merged database reflect 265 remaining at Main Farm and 100 at Kicwamba
+        assertEquals(265, dev.mfarm.com.mfarm.dao.BatchManager.getCurrentQuantity(adapterA, batchId));
+        assertEquals(100, dev.mfarm.com.mfarm.dao.BatchManager.getCurrentQuantity(adapterA, destBatchId));
+
+        // Total headcount on Phone A = 365 (500 - 15 - 120 = 365)
+        Statement stmtA = phoneA.createStatement();
+        ResultSet rsSum = stmtA.executeQuery("SELECT SUM(current_quantity) FROM livestock_batches WHERE batch_id IN ('" + batchId + "', '" + destBatchId + "')");
+        assertTrue(rsSum.next());
+        assertEquals(365, rsSum.getInt(1));
+        rsSum.close();
+        stmtA.close();
+
+        phoneA.close();
+        phoneB.close();
+    }
+
+    // --- GAP 28: Security Wrong Key Rejection ---
+    @Test
+    public void testTwoDeviceSyncSecurityWrongKeyRejection() throws Exception {
+        String payload = "Test Farm Encrypted Data";
+        byte[] encrypted = dev.mfarm.com.mfarm.sync.FarmCrypto.encrypt(payload, "CORRECT-KEY-1234");
+
+        // Attempting to decrypt with wrong key MUST throw Exception
+        try {
+            dev.mfarm.com.mfarm.sync.FarmCrypto.decrypt(encrypted, "WRONG-KEY-9999");
+            org.junit.Assert.fail("Decrypting with wrong key must throw an Exception");
+        } catch (Exception expected) {
+            // Expected security exception
+            assertTrue(expected instanceof java.security.GeneralSecurityException || expected.getMessage().toLowerCase().contains("tampering") || expected.getMessage().toLowerCase().contains("join code"));
+        }
+    }
 }

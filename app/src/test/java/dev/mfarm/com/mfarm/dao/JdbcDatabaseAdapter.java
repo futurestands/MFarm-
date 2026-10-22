@@ -27,6 +27,14 @@ public class JdbcDatabaseAdapter implements DatabaseAdapter {
     @Override
     public Cursor query(String sql, String[] selectionArgs) {
         try {
+            String trimmed = sql != null ? sql.trim().toUpperCase() : "";
+            if (!trimmed.startsWith("SELECT") && !trimmed.startsWith("PRAGMA")) {
+                Statement stmt = conn.createStatement();
+                stmt.executeUpdate(sql);
+                stmt.close();
+                return new JdbcCursor();
+            }
+
             PreparedStatement ps = conn.prepareStatement(sql);
             if (selectionArgs != null) {
                 for (int i = 0; i < selectionArgs.length; i++) {

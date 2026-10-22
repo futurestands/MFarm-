@@ -23,6 +23,8 @@ public class JdbcCursor implements Cursor {
     private int pos = -1;
     private boolean closed = false;
 
+    public JdbcCursor() {}
+
     public JdbcCursor(ResultSet rs) {
         try {
             ResultSetMetaData meta = rs.getMetaData();

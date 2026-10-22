@@ -9,8 +9,13 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+
+import dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter;
+import dev.mfarm.com.mfarm.dao.DatabaseAdapter;
 
 public final class FarmSnapshot {
     private static final String TAG = "FarmSnapshot";
@@ -33,6 +38,25 @@ public final class FarmSnapshot {
 
     private FarmSnapshot() {}
 
+    public static JSONObject capture(DatabaseAdapter db, FarmIdentity identity) throws Exception {
+        if (db instanceof AndroidDatabaseAdapter) {
+            return capture(((AndroidDatabaseAdapter) db).getSQLiteDatabase(), identity);
+        }
+        JSONObject root = new JSONObject();
+        root.put("format", 1);
+        root.put("farmId", identity.farmId);
+        root.put("farmName", identity.farmName);
+        root.put("exportedAt", System.currentTimeMillis());
+        root.put("deviceId", identity.deviceId);
+        JSONArray records = new JSONArray();
+        for (int t = 0; t < FarmSyncSchema.TABLES.length; t++) {
+            exportTable(db, FarmSyncSchema.TABLES[t], records);
+        }
+        exportDeleted(db, records);
+        root.put("records", records);
+        return root;
+    }
+
     public static JSONObject capture(SQLiteDatabase db, FarmIdentity identity) throws Exception {
         JSONObject root = new JSONObject();
         root.put("format", 1);
@@ -52,6 +76,42 @@ public final class FarmSnapshot {
     public static int apply(SQLiteDatabase db, JSONObject snapshot) throws Exception {
         ApplyResult res = applyWithDetails(db, snapshot);
         return res.appliedCount;
+    }
+
+    public static ApplyResult applyWithDetails(DatabaseAdapter db, JSONObject snapshot) throws Exception {
+        if (db instanceof AndroidDatabaseAdapter) {
+            return applyWithDetails(((AndroidDatabaseAdapter) db).getSQLiteDatabase(), snapshot);
+        }
+        if (snapshot == null) return new ApplyResult(0, 0, new ArrayList<String>());
+        JSONArray records = snapshot.optJSONArray("records");
+        if (records == null) return new ApplyResult(0, 0, new ArrayList<String>());
+
+        int applied = 0;
+        int failed = 0;
+        List<String> errors = new ArrayList<>();
+
+        db.beginTransaction();
+        try {
+            List<JSONObject> ordered = orderForApply(records);
+            for (int i = 0; i < ordered.size(); i++) {
+                JSONObject rec = ordered.get(i);
+                try {
+                    if (applyRecord(db, rec)) {
+                        applied++;
+                    } else {
+                        failed++;
+                    }
+                } catch (Exception e) {
+                    failed++;
+                }
+            }
+            if (failed == 0) {
+                db.setTransactionSuccessful();
+            }
+        } finally {
+            db.endTransaction();
+        }
+        return new ApplyResult(applied, failed, errors);
     }
 
     public static ApplyResult applyWithDetails(SQLiteDatabase db, JSONObject snapshot) throws Exception {
@@ -120,6 +180,20 @@ public final class FarmSnapshot {
         return first;
     }
 
+    private static void exportTable(DatabaseAdapter db, String table, JSONArray records) {
+        Cursor cursor = null;
+        try {
+            cursor = db.query("SELECT t.*, s.uuid, s.updated_at, s.deleted FROM " + table
+                    + " t JOIN sync_index s ON s.table_name='" + table + "' AND s.local_id=t.id AND s.deleted=0", null);
+            while (cursor != null && cursor.moveToNext()) {
+                records.put(cursorToRecord(db, table, cursor, false));
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (cursor != null) cursor.close();
+        }
+    }
+
     private static void exportTable(SQLiteDatabase db, String table, JSONArray records) {
         if (!FarmSyncSchema.tableExists(db, table)) {
             return;
@@ -138,6 +212,26 @@ public final class FarmSnapshot {
             if (cursor != null) {
                 cursor.close();
             }
+        }
+    }
+
+    private static void exportDeleted(DatabaseAdapter db, JSONArray records) {
+        Cursor cursor = null;
+        try {
+            cursor = db.query("SELECT uuid, table_name, updated_at FROM sync_index WHERE deleted=1", null);
+            while (cursor != null && cursor.moveToNext()) {
+                JSONObject rec = new JSONObject();
+                rec.put("uuid", cursor.getString(0));
+                rec.put("table", cursor.getString(1));
+                rec.put("updatedAt", cursor.getLong(2));
+                rec.put("deleted", true);
+                rec.put("fields", new JSONObject());
+                rec.put("links", new JSONObject());
+                records.put(rec);
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (cursor != null) cursor.close();
         }
     }
 
@@ -164,6 +258,33 @@ public final class FarmSnapshot {
                 cursor.close();
             }
         }
+    }
+
+    private static JSONObject cursorToRecord(DatabaseAdapter db, String table, Cursor cursor, boolean deleted) throws Exception {
+        JSONObject rec = new JSONObject();
+        int uuidIdx = cursor.getColumnIndex("uuid");
+        rec.put("uuid", uuidIdx >= 0 ? cursor.getString(uuidIdx) : "uuid-" + System.currentTimeMillis());
+        rec.put("table", table);
+        int upIdx = cursor.getColumnIndex("updated_at");
+        rec.put("updatedAt", upIdx >= 0 ? cursor.getLong(upIdx) : System.currentTimeMillis());
+        rec.put("deleted", deleted);
+        JSONObject fields = new JSONObject();
+        JSONObject links = new JSONObject();
+        String[] names = cursor.getColumnNames();
+        for (int i = 0; i < names.length; i++) {
+            String col = names[i];
+            if ("id".equals(col) || "uuid".equals(col) || "updated_at".equals(col)
+                    || "deleted".equals(col) || "table_name".equals(col)) {
+                continue;
+            }
+            int idx = cursor.getColumnIndex(col);
+            if (idx >= 0 && !cursor.isNull(idx)) {
+                fields.put(col, cursor.getString(idx));
+            }
+        }
+        rec.put("fields", fields);
+        rec.put("links", links);
+        return rec;
     }
 
     private static JSONObject cursorToRecord(SQLiteDatabase db, String table, Cursor cursor, boolean deleted)
@@ -207,6 +328,68 @@ public final class FarmSnapshot {
         rec.put("fields", fields);
         rec.put("links", links);
         return rec;
+    }
+
+    private static boolean applyRecord(DatabaseAdapter db, JSONObject rec) {
+        try {
+            String uuid = rec.getString("uuid");
+            String table = rec.getString("table");
+            long updatedAt = rec.optLong("updatedAt", System.currentTimeMillis());
+            boolean deleted = rec.optBoolean("deleted", false);
+
+            if (deleted) {
+                db.delete(table, "id IN (SELECT local_id FROM sync_index WHERE uuid=?)", new String[]{uuid});
+                Map<String, Object> indexVal = new HashMap<>();
+                indexVal.put("deleted", 1);
+                indexVal.put("updated_at", updatedAt);
+                db.update("sync_index", indexVal, "uuid=?", new String[]{uuid});
+                return true;
+            }
+
+            JSONObject fields = rec.optJSONObject("fields");
+            Map<String, Object> values = new HashMap<>();
+            if (fields != null) {
+                JSONArray names = fields.names();
+                if (names != null) {
+                    for (int i = 0; i < names.length(); i++) {
+                        String k = names.getString(i);
+                        if (!fields.isNull(k)) {
+                            values.put(k, fields.get(k));
+                        }
+                    }
+                }
+            }
+
+            Cursor cIndex = db.query("SELECT local_id, updated_at FROM sync_index WHERE uuid=?", new String[]{uuid});
+            if (cIndex != null && cIndex.moveToFirst()) {
+                long localUpdated = cIndex.getLong(1);
+                int localId = cIndex.getInt(0);
+                cIndex.close();
+                if (updatedAt < localUpdated) {
+                    return false;
+                }
+                db.update(table, values, "id=?", new String[]{String.valueOf(localId)});
+                Map<String, Object> indexVal = new HashMap<>();
+                indexVal.put("updated_at", updatedAt);
+                indexVal.put("deleted", 0);
+                db.update("sync_index", indexVal, "uuid=?", new String[]{uuid});
+            } else {
+                if (cIndex != null) cIndex.close();
+                long newId = db.insert(table, null, values);
+                if (newId != -1) {
+                    Map<String, Object> indexVal = new HashMap<>();
+                    indexVal.put("uuid", uuid);
+                    indexVal.put("table_name", table);
+                    indexVal.put("local_id", newId);
+                    indexVal.put("updated_at", updatedAt);
+                    indexVal.put("deleted", 0);
+                    db.insert("sync_index", null, indexVal);
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static boolean applyRecord(SQLiteDatabase db, JSONObject rec) {
