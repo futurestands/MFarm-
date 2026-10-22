@@ -707,6 +707,51 @@ public class SQLiteIntegrationTest {
         assertEquals("Reversed", r3.getString(1));
         r3.close();
 
+        // 3. Attempting to reverse an ALREADY REVERSED batch must return FALSE
+        boolean secondReversal = dev.mfarm.com.mfarm.sync.ExcelImporter.reverseImportBatch(adapter, "UUID-REVERSAL-TEST");
+        assertFalse("Reversing an already reversed batch must return FALSE", secondReversal);
+
+        stmt.close();
+    }
+
+    // --- GAP 23: Reversal Blocked when Subsequent Dependent Records Exist ---
+    @Test
+    public void testReversalBlockedWhenSubsequentDependentRecordsExist() throws Exception {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        dev.mfarm.com.mfarm.sync.ExcelImporter.ImportSummary summary = new dev.mfarm.com.mfarm.sync.ExcelImporter.ImportSummary();
+        summary.batchUuid = "UUID-CONFLICT-TEST";
+
+        java.util.List<java.util.Map<String, String>> flockRows = new java.util.ArrayList<>();
+        java.util.Map<String, String> row1 = new java.util.HashMap<>();
+        row1.put("tag_no", "GT-CONFLICT-01");
+        row1.put("sex", "F");
+        row1.put("dob", "12-07-2021");
+        row1.put("origin", "Born in herd");
+        flockRows.add(row1);
+
+        // 1. Import Batch
+        dev.mfarm.com.mfarm.sync.ExcelImporter.importFlockOverview(adapter, flockRows, summary);
+        dev.mfarm.com.mfarm.sync.ExcelImporter.recordImportBatch(adapter, summary);
+
+        // Fetch inserted animal ID
+        Statement stmt = conn.createStatement();
+        ResultSet rAnim = stmt.executeQuery("SELECT id FROM animas WHERE tag_number = 'GT-CONFLICT-01'");
+        assertTrue(rAnim.next());
+        long animId = rAnim.getLong(1);
+        rAnim.close();
+
+        // 2. Add subsequent vaccination record for GT-CONFLICT-01 AFTER import
+        stmt.execute("INSERT INTO vaccinations (animal_id, vaccine_name, status) VALUES (" + animId + ", 'PPR Vaccine', 'Completed')");
+
+        // 3. Preview Reversal -> MUST detect conflict and set canSafelyReverse = false
+        dev.mfarm.com.mfarm.sync.ExcelImporter.ReversalPreview preview = dev.mfarm.com.mfarm.sync.ExcelImporter.previewBatchReversal(adapter, "UUID-CONFLICT-TEST");
+        assertFalse("Reversal must be blocked when subsequent dependent vaccination records exist", preview.canSafelyReverse);
+        assertFalse("Conflicts list must contain warning details", preview.conflicts.isEmpty());
+
+        // 4. Execute Reversal -> MUST return FALSE (reversal blocked)
+        boolean reversed = dev.mfarm.com.mfarm.sync.ExcelImporter.reverseImportBatch(adapter, "UUID-CONFLICT-TEST");
+        assertFalse("Reversal execution must return FALSE when conflicts exist", reversed);
+
         stmt.close();
     }
 

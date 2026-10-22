@@ -471,6 +471,113 @@ public final class ExcelImporter {
         }
     }
 
+    public static class ReversalPreview {
+        public String batchUuid;
+        public String fileName;
+        public int itemsToRemove = 0;
+        public int itemsToRestore = 0;
+        public List<String> details = new ArrayList<>();
+        public List<String> conflicts = new ArrayList<>();
+        public boolean canSafelyReverse = true;
+    }
+
+    public static ReversalPreview previewBatchReversal(DatabaseAdapter db, String batchUuid) {
+        ReversalPreview preview = new ReversalPreview();
+        preview.batchUuid = batchUuid;
+
+        if (db == null || batchUuid == null || batchUuid.trim().isEmpty()) {
+            preview.canSafelyReverse = false;
+            preview.conflicts.add("Invalid batch UUID");
+            return preview;
+        }
+
+        Cursor cBatch = db.query("SELECT file_name, status, imported_at FROM import_batches WHERE batch_uuid = ?", new String[]{batchUuid});
+        long batchImportedAt = 0;
+        if (cBatch != null && cBatch.moveToFirst()) {
+            preview.fileName = cBatch.getString(0);
+            String status = cBatch.getString(1);
+            batchImportedAt = cBatch.getLong(2);
+            cBatch.close();
+
+            if ("Reversed".equalsIgnoreCase(status)) {
+                preview.canSafelyReverse = false;
+                preview.conflicts.add("Batch " + batchUuid.substring(0, 8) + " has ALREADY been reversed.");
+                return preview;
+            }
+        } else {
+            if (cBatch != null) cBatch.close();
+            preview.canSafelyReverse = false;
+            preview.conflicts.add("Import batch not found.");
+            return preview;
+        }
+
+        Cursor cItems = db.query("SELECT id, table_name, record_id, action_type, before_image_json FROM import_batch_items WHERE batch_uuid = ?", new String[]{batchUuid});
+        if (cItems != null && cItems.moveToFirst()) {
+            do {
+                String table = cItems.getString(1);
+                long recordId = cItems.getLong(2);
+                String action = cItems.getString(3);
+
+                if ("INSERT".equalsIgnoreCase(action)) {
+                    preview.itemsToRemove++;
+                    preview.details.add("Will remove inserted record ID " + recordId + " from table '" + table + "'");
+
+                    // Check if subsequent dependent child records were created after batchImportedAt
+                    if ("animas".equalsIgnoreCase(table)) {
+                        checkAnimalDependencies(db, recordId, batchImportedAt, preview);
+                    }
+                } else if ("UPDATE".equalsIgnoreCase(action)) {
+                    preview.itemsToRestore++;
+                    preview.details.add("Will restore pre-update before-image for record ID " + recordId + " in table '" + table + "'");
+                }
+            } while (cItems.moveToNext());
+            cItems.close();
+        }
+
+        if (!preview.conflicts.isEmpty()) {
+            preview.canSafelyReverse = false;
+        }
+
+        return preview;
+    }
+
+    private static void checkAnimalDependencies(DatabaseAdapter db, long animalId, long batchImportedAt, ReversalPreview preview) {
+        String idStr = String.valueOf(animalId);
+
+        // Check offspring / breeding / health added after batchImportedAt
+        Cursor cBreed = db.query("SELECT COUNT(*) FROM breeding_records WHERE animal_id = ?", new String[]{idStr});
+        if (cBreed != null && cBreed.moveToFirst() && cBreed.getInt(0) > 0) {
+            preview.conflicts.add("Conflict: Animal ID " + animalId + " has breeding records created. Reversal blocked.");
+        }
+        if (cBreed != null) cBreed.close();
+
+        Cursor cVac = db.query("SELECT COUNT(*) FROM vaccinations WHERE animal_id = ?", new String[]{idStr});
+        if (cVac != null && cVac.moveToFirst() && cVac.getInt(0) > 0) {
+            preview.conflicts.add("Conflict: Animal ID " + animalId + " has vaccination records created. Reversal blocked.");
+        }
+        if (cVac != null) cVac.close();
+    }
+
+    private static void restoreBeforeImage(DatabaseAdapter db, String table, long recordId, String beforeImageJson) {
+        if (beforeImageJson == null || beforeImageJson.trim().isEmpty()) return;
+        try {
+            org.json.JSONObject obj = new org.json.JSONObject(beforeImageJson);
+            Map<String, Object> restoreValues = new HashMap<>();
+            java.util.Iterator<String> keys = obj.keys();
+            while (keys.hasNext()) {
+                String k = keys.next();
+                if (!"id".equalsIgnoreCase(k)) {
+                    restoreValues.put(k, obj.get(k));
+                }
+            }
+            if (!restoreValues.isEmpty()) {
+                db.update(table, restoreValues, "id = ?", new String[]{String.valueOf(recordId)});
+            }
+        } catch (Exception e) {
+            System.err.println("ExcelImporter: Error restoring before-image for " + table + " ID " + recordId + ": " + e.getMessage());
+        }
+    }
+
     /**
      * Safely reverses an entire import batch:
      * - Deletes inserted records from their respective tables
@@ -479,23 +586,14 @@ public final class ExcelImporter {
      * - Updates import_batches.status to 'Reversed'
      */
     public static boolean reverseImportBatch(DatabaseAdapter db, String batchUuid) {
-        if (db == null || batchUuid == null || batchUuid.trim().isEmpty()) return false;
+        ReversalPreview preview = previewBatchReversal(db, batchUuid);
+        if (!preview.canSafelyReverse) {
+            System.err.println("ExcelImporter: Cannot safely reverse import batch " + batchUuid + ": " + preview.conflicts);
+            return false;
+        }
 
         db.beginTransaction();
         try {
-            // Check if batch exists and is not already reversed
-            Cursor cBatch = db.query("SELECT status FROM import_batches WHERE batch_uuid = ?", new String[]{batchUuid});
-            if (cBatch != null && cBatch.moveToFirst()) {
-                String status = cBatch.getString(0);
-                cBatch.close();
-                if ("Reversed".equalsIgnoreCase(status)) {
-                    return false; // Already reversed
-                }
-            } else {
-                if (cBatch != null) cBatch.close();
-                return false; // Batch not found
-            }
-
             // Fetch items belonging to this import batch
             Cursor cItems = db.query("SELECT id, table_name, record_id, action_type, before_image_json FROM import_batch_items WHERE batch_uuid = ? ORDER BY id DESC", new String[]{batchUuid});
             if (cItems != null && cItems.moveToFirst()) {
@@ -503,12 +601,16 @@ public final class ExcelImporter {
                     String table = cItems.getString(1);
                     long recordId = cItems.getLong(2);
                     String action = cItems.getString(3);
+                    String beforeImageJson = cItems.getString(4);
 
                     if ("INSERT".equalsIgnoreCase(action)) {
                         // Delete inserted record
                         db.delete(table, "id = ?", new String[]{String.valueOf(recordId)});
                         // Clean up sync_index
                         db.delete("sync_index", "table_name = ? AND local_id = ?", new String[]{table, String.valueOf(recordId)});
+                    } else if ("UPDATE".equalsIgnoreCase(action) && beforeImageJson != null && !beforeImageJson.trim().isEmpty()) {
+                        // Restore pre-update values from before_image_json
+                        restoreBeforeImage(db, table, recordId, beforeImageJson);
                     }
                 } while (cItems.moveToNext());
                 cItems.close();
