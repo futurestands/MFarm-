@@ -67,6 +67,8 @@ public class SQLiteIntegrationTest {
         stmt.execute("CREATE TABLE livestock_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT UNIQUE NOT NULL, species TEXT NOT NULL, subtype TEXT NOT NULL, breed_or_strain TEXT, purpose TEXT, initial_quantity INTEGER NOT NULL, current_quantity INTEGER NOT NULL, acquisition_date TEXT NOT NULL, age_weeks REAL DEFAULT 0, source_supplier TEXT, location_name TEXT DEFAULT 'Main Farm', housing_unit TEXT, purchase_cost REAL DEFAULT 0, project_code TEXT DEFAULT 'PL4', status TEXT DEFAULT 'Active', notes TEXT)");
         stmt.execute("CREATE TABLE batch_quantity_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT NOT NULL, event_type TEXT NOT NULL, event_date TEXT NOT NULL, quantity_change INTEGER NOT NULL, resulting_quantity INTEGER NOT NULL, unit_price REAL DEFAULT 0, total_amount REAL DEFAULT 0, source_ref TEXT, notes TEXT)");
         stmt.execute("CREATE TABLE egg_production_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT NOT NULL, log_date TEXT NOT NULL, eggs_collected INTEGER NOT NULL, broken_eggs INTEGER DEFAULT 0, notes TEXT)");
+        stmt.execute("CREATE TABLE import_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_uuid TEXT UNIQUE NOT NULL, file_name TEXT NOT NULL, imported_at INTEGER NOT NULL, record_count INTEGER NOT NULL, summary_json TEXT, status TEXT DEFAULT 'Completed')");
+        stmt.execute("CREATE TABLE import_batch_items (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_uuid TEXT NOT NULL, table_name TEXT NOT NULL, record_id INTEGER NOT NULL, action_type TEXT NOT NULL, before_image_json TEXT, created_at INTEGER NOT NULL)");
         stmt.execute("CREATE TABLE sync_index (uuid TEXT PRIMARY KEY NOT NULL, table_name TEXT NOT NULL, local_id INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, UNIQUE(table_name, local_id))");
         stmt.execute("CREATE TABLE sync_state (k TEXT PRIMARY KEY, v TEXT)");
         stmt.close();
@@ -660,5 +662,59 @@ public class SQLiteIntegrationTest {
         assertEquals(21, poultry.durationDays);
         assertTrue(poultry.isIncubation);
         assertEquals("Hatching", poultry.birthTerm);
+    }
+
+    // --- GAP 21: Import Batch Reversal Safety ---
+    @Test
+    public void testImportBatchReversal() throws Exception {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        dev.mfarm.com.mfarm.sync.ExcelImporter.ImportSummary summary = new dev.mfarm.com.mfarm.sync.ExcelImporter.ImportSummary();
+        summary.batchUuid = "UUID-REVERSAL-TEST";
+
+        java.util.List<java.util.Map<String, String>> flockRows = new java.util.ArrayList<>();
+        java.util.Map<String, String> row1 = new java.util.HashMap<>();
+        row1.put("tag_no", "GT-REV-001");
+        row1.put("sex", "F");
+        row1.put("dob", "12-07-2021");
+        row1.put("origin", "Born in herd");
+        flockRows.add(row1);
+
+        // 1. Import Batch
+        int imported = dev.mfarm.com.mfarm.sync.ExcelImporter.importFlockOverview(adapter, flockRows, summary);
+        assertEquals(1, imported);
+        dev.mfarm.com.mfarm.sync.ExcelImporter.recordImportBatch(adapter, summary);
+
+        // Verify animal exists in animas
+        Statement stmt = conn.createStatement();
+        ResultSet r1 = stmt.executeQuery("SELECT COUNT(*) FROM animas WHERE tag_number = 'GT-REV-001'");
+        assertTrue(r1.next());
+        assertEquals(1, r1.getInt(1));
+        r1.close();
+
+        // 2. Reverse Import Batch
+        boolean reversed = dev.mfarm.com.mfarm.sync.ExcelImporter.reverseImportBatch(adapter, "UUID-REVERSAL-TEST");
+        assertTrue(reversed);
+
+        // Verify animal deleted from animas
+        ResultSet r2 = stmt.executeQuery("SELECT COUNT(*) FROM animas WHERE tag_number = 'GT-REV-001'");
+        assertTrue(r2.next());
+        assertEquals(0, r2.getInt(1));
+        r2.close();
+
+        // Verify batch status is 'Reversed'
+        ResultSet r3 = stmt.executeQuery("SELECT status FROM import_batches WHERE batch_uuid = 'UUID-REVERSAL-TEST'");
+        assertTrue(r3.next());
+        assertEquals("Reversed", r3.getString(1));
+        r3.close();
+
+        stmt.close();
+    }
+
+    // --- GAP 22: Excel Exporter CSV Formula Injection Encoding ---
+    @Test
+    public void testExcelExporterFormulaEncoding() {
+        String dangerousFormula = "=SUM(1+1)";
+        String encoded = dev.mfarm.com.mfarm.sync.ExcelExporter.encodeCsv(dangerousFormula);
+        assertTrue(encoded.contains("'=SUM(1+1)"));
     }
 }

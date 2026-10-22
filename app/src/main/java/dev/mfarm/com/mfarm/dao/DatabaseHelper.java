@@ -372,6 +372,24 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 				"location_name TEXT DEFAULT 'Main Farm', " +
 				"capacity INTEGER DEFAULT 1000)");
 
+		db.execSQL("CREATE TABLE IF NOT EXISTS import_batches (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"batch_uuid TEXT UNIQUE NOT NULL, " +
+				"file_name TEXT NOT NULL, " +
+				"imported_at INTEGER NOT NULL, " +
+				"record_count INTEGER NOT NULL, " +
+				"summary_json TEXT, " +
+				"status TEXT DEFAULT 'Completed')");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS import_batch_items (" +
+				"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+				"batch_uuid TEXT NOT NULL, " +
+				"table_name TEXT NOT NULL, " +
+				"record_id INTEGER NOT NULL, " +
+				"action_type TEXT NOT NULL, " +
+				"before_image_json TEXT, " +
+				"created_at INTEGER NOT NULL)");
+
 		// Seed Default Species Catalog
 		try {
 			db.execSQL("INSERT OR IGNORE INTO species_catalog VALUES ('Cattle', 283, 'Calving', 'Calf', 'Cow', 'Bull')");

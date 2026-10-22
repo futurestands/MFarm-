@@ -66,6 +66,10 @@
             android:id="@+id/nav_batches"
             android:icon="@drawable/ic_menu_manage"
             android:title="Group &amp; Batch Livestock" />
+        <item
+            android:id="@+id/nav_excel"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Excel Management Centre" />
     </group>
 
     <item android:title="System &amp; Data">

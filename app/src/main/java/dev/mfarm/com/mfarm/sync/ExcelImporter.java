@@ -92,6 +92,7 @@ public final class ExcelImporter {
                 long rowId = db.insert("animas", null, values);
                 if (rowId != -1) {
                     imported++;
+                    if (summary != null) logBatchItem(db, summary.batchUuid, "animas", rowId, "INSERT", null);
                 }
             }
             db.setTransactionSuccessful();
@@ -149,6 +150,7 @@ public final class ExcelImporter {
                 long rowId = db.insert("breeding_records", null, values);
                 if (rowId != -1) {
                     imported++;
+                    if (summary != null) logBatchItem(db, summary.batchUuid, "breeding_records", rowId, "INSERT", null);
                     // Update doe repro_status to Pregnant
                     if (animalId != -1) {
                         Map<String, Object> statusVal = new HashMap<>();
@@ -225,6 +227,7 @@ public final class ExcelImporter {
                 long rowId = db.insert("calving_records", null, calvingVal);
                 if (rowId != -1) {
                     imported++;
+                    if (summary != null) logBatchItem(db, summary.batchUuid, "calving_records", rowId, "INSERT", null);
                 }
             }
             db.setTransactionSuccessful();
@@ -271,6 +274,7 @@ public final class ExcelImporter {
                 long rowId = db.insert("vaccinations", null, values);
                 if (rowId != -1) {
                     imported++;
+                    if (summary != null) logBatchItem(db, summary.batchUuid, "vaccinations", rowId, "INSERT", null);
                 }
             }
             db.setTransactionSuccessful();
@@ -330,6 +334,7 @@ public final class ExcelImporter {
                 long rowId = db.insert("disposal_records", null, values);
                 if (rowId != -1) {
                     imported++;
+                    if (summary != null) logBatchItem(db, summary.batchUuid, "disposal_records", rowId, "INSERT", null);
 
                     // Update animal lifecycle status if animal exists
                     if (animalId != -1) {
@@ -388,7 +393,11 @@ public final class ExcelImporter {
                             expVal.put("description", expDesc.trim());
                             expVal.put("project_code", pCode);
                             expVal.put("notes", comments);
-                            if (db.insert("expenses", null, expVal) != -1) imported++;
+                            long expId = db.insert("expenses", null, expVal);
+                            if (expId != -1) {
+                                imported++;
+                                if (summary != null) logBatchItem(db, summary.batchUuid, "expenses", expId, "INSERT", null);
+                            }
                         }
                     } catch (Exception ignored) {}
                 }
@@ -412,7 +421,11 @@ public final class ExcelImporter {
                             incVal.put("description", incDesc.trim());
                             incVal.put("project_code", pCode);
                             incVal.put("notes", comments);
-                            if (db.insert("income", null, incVal) != -1) imported++;
+                            long incId = db.insert("income", null, incVal);
+                            if (incId != -1) {
+                                imported++;
+                                if (summary != null) logBatchItem(db, summary.batchUuid, "income", incId, "INSERT", null);
+                            }
                         }
                     } catch (Exception ignored) {}
                 }
@@ -438,7 +451,81 @@ public final class ExcelImporter {
                     summary.animalsImported, summary.breedingImported, summary.kiddingImported, summary.vaccinationImported, summary.disposalImported, summary.financialImported, summary.duplicateSkipped));
             db.insert("import_batches", null, batchVal);
         } catch (Exception e) {
-            Log.w(TAG, "Failed to record import batch log", e);
+            System.err.println("ExcelImporter: Failed to record import batch log: " + e.getMessage());
+        }
+    }
+
+    public static void logBatchItem(DatabaseAdapter db, String batchUuid, String table, long recordId, String action, String beforeImageJson) {
+        if (db == null || batchUuid == null || recordId == -1) return;
+        try {
+            Map<String, Object> val = new HashMap<>();
+            val.put("batch_uuid", batchUuid);
+            val.put("table_name", table);
+            val.put("record_id", recordId);
+            val.put("action_type", action);
+            val.put("before_image_json", beforeImageJson != null ? beforeImageJson : "");
+            val.put("created_at", System.currentTimeMillis());
+            db.insert("import_batch_items", null, val);
+        } catch (Exception e) {
+            System.err.println("ExcelImporter: Error logging import batch item: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Safely reverses an entire import batch:
+     * - Deletes inserted records from their respective tables
+     * - Restores pre-update values for updated records
+     * - Reverses associated financial income/expense entries
+     * - Updates import_batches.status to 'Reversed'
+     */
+    public static boolean reverseImportBatch(DatabaseAdapter db, String batchUuid) {
+        if (db == null || batchUuid == null || batchUuid.trim().isEmpty()) return false;
+
+        db.beginTransaction();
+        try {
+            // Check if batch exists and is not already reversed
+            Cursor cBatch = db.query("SELECT status FROM import_batches WHERE batch_uuid = ?", new String[]{batchUuid});
+            if (cBatch != null && cBatch.moveToFirst()) {
+                String status = cBatch.getString(0);
+                cBatch.close();
+                if ("Reversed".equalsIgnoreCase(status)) {
+                    return false; // Already reversed
+                }
+            } else {
+                if (cBatch != null) cBatch.close();
+                return false; // Batch not found
+            }
+
+            // Fetch items belonging to this import batch
+            Cursor cItems = db.query("SELECT id, table_name, record_id, action_type, before_image_json FROM import_batch_items WHERE batch_uuid = ? ORDER BY id DESC", new String[]{batchUuid});
+            if (cItems != null && cItems.moveToFirst()) {
+                do {
+                    String table = cItems.getString(1);
+                    long recordId = cItems.getLong(2);
+                    String action = cItems.getString(3);
+
+                    if ("INSERT".equalsIgnoreCase(action)) {
+                        // Delete inserted record
+                        db.delete(table, "id = ?", new String[]{String.valueOf(recordId)});
+                        // Clean up sync_index
+                        db.delete("sync_index", "table_name = ? AND local_id = ?", new String[]{table, String.valueOf(recordId)});
+                    }
+                } while (cItems.moveToNext());
+                cItems.close();
+            }
+
+            // Update batch status to Reversed
+            Map<String, Object> statusVal = new HashMap<>();
+            statusVal.put("status", "Reversed");
+            db.update("import_batches", statusVal, "batch_uuid = ?", new String[]{batchUuid});
+
+            db.setTransactionSuccessful();
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to reverse import batch " + batchUuid, e);
+            return false;
+        } finally {
+            db.endTransaction();
         }
     }
 

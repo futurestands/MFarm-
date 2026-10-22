@@ -187,6 +187,11 @@
             android:label="Batch &amp; Flock Manager"
             android:theme="@style/AppTheme.NoActionBar" />
 
+        <activity
+            android:name=".ExcelManagementActivity"
+            android:label="Excel Management Centre"
+            android:theme="@style/AppTheme.NoActionBar" />
+
         <receiver android:name=".VaccinationReminderReceiver" android:exported="false" />
 
         <receiver
