@@ -98,6 +98,8 @@ public class ExpenseActivity extends AppCompatActivity {
         try {
             android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(this);
             if (db != null) {
+                dev.mfarm.com.mfarm.dao.DatabaseAdapter adapterDb = new dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter(db);
+                dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapterDb, "expense_categories", "category_name", category);
                 db.insert("expenses", null, values);
             }
             Toast.makeText(this, "Saved Successfully", Toast.LENGTH_LONG).show();
