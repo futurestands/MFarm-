@@ -22,7 +22,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
 	public static String DB_PATH;
 	public static String DB_NAME = MainActivity.DB_NAME;
-	public static final int DB_VERSION = 5;
+	public static final int DB_VERSION = 6;
 	public static SQLiteDatabase database;
 	public final Context context;
 	public static final String ID_COLUMN = "_id";
@@ -389,6 +389,23 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 				"action_type TEXT NOT NULL, " +
 				"before_image_json TEXT, " +
 				"created_at INTEGER NOT NULL)");
+
+		db.execSQL("CREATE TABLE IF NOT EXISTS income_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, category_name TEXT UNIQUE NOT NULL)");
+		db.execSQL("CREATE TABLE IF NOT EXISTS expense_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, category_name TEXT UNIQUE NOT NULL)");
+		db.execSQL("CREATE TABLE IF NOT EXISTS inventory_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, category_name TEXT UNIQUE NOT NULL)");
+		db.execSQL("CREATE TABLE IF NOT EXISTS inventory_units (id INTEGER PRIMARY KEY AUTOINCREMENT, unit_name TEXT UNIQUE NOT NULL)");
+		db.execSQL("CREATE TABLE IF NOT EXISTS crop_types (id INTEGER PRIMARY KEY AUTOINCREMENT, crop_name TEXT UNIQUE NOT NULL)");
+		db.execSQL("CREATE TABLE IF NOT EXISTS disposal_reasons (id INTEGER PRIMARY KEY AUTOINCREMENT, reason_name TEXT UNIQUE NOT NULL)");
+
+		// Seed Default Categories
+		try {
+			db.execSQL("INSERT OR IGNORE INTO income_categories (category_name) VALUES ('Milk Sales'), ('Animal Sales'), ('Crop Sales'), ('Breeding & Services'), ('Other Income')");
+			db.execSQL("INSERT OR IGNORE INTO expense_categories (category_name) VALUES ('Feeds & Minerals'), ('Veterinary & Medicine'), ('Vaccinations'), ('Labor & Salaries'), ('Crop Inputs'), ('Equipment & Supplies'), ('Overheads')");
+			db.execSQL("INSERT OR IGNORE INTO inventory_categories (category_name) VALUES ('Veterinary & Drugs'), ('Feeds & Minerals'), ('Equipment & Tools'), ('Seeds & Sprays')");
+			db.execSQL("INSERT OR IGNORE INTO inventory_units (unit_name) VALUES ('kg'), ('L'), ('bags'), ('bottles'), ('doses'), ('pieces'), ('boxes')");
+			db.execSQL("INSERT OR IGNORE INTO crop_types (crop_name) VALUES ('Coffee (CF3)'), ('Groundnuts'), ('Maize'), ('Beans'), ('Banana / Plantain')");
+			db.execSQL("INSERT OR IGNORE INTO disposal_reasons (reason_name) VALUES ('Sold'), ('Death / Disease'), ('Culled / Old Age'), ('Stolen'), ('Missing'), ('Slaughtered')");
+		} catch (Exception ignored) {}
 
 		// Seed Default Species Catalog
 		try {

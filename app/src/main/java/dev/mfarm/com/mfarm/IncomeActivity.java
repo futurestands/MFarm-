@@ -109,7 +109,11 @@ public class IncomeActivity extends AppCompatActivity {
     }
 
     private void setupCategories() {
-        String[] categories = {"Milk Sales", "Animal Sales", "Manure Sales", "Breeding Services", "Crop Sales", "Other Income"};
+        android.database.sqlite.SQLiteDatabase db = getDb();
+        dev.mfarm.com.mfarm.dao.DatabaseAdapter adapterDb = new dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter(db);
+        String[] defaultCat = {"Milk Sales", "Animal Sales", "Crop Sales", "Breeding Services", "Other Income"};
+        List<String> categories = dev.mfarm.com.mfarm.dao.CategoryManager.getCategories(adapterDb, "income_categories", "category_name", defaultCat);
+
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, categories);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerCategory.setAdapter(adapter);

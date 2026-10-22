@@ -38,7 +38,13 @@ public final class FarmSyncSchema {
             "egg_production_logs",
             "housing_units",
             "import_batches",
-            "import_batch_items"
+            "import_batch_items",
+            "income_categories",
+            "expense_categories",
+            "inventory_categories",
+            "inventory_units",
+            "crop_types",
+            "disposal_reasons"
     };
 
     private static final String TAG = "FarmSyncSchema";
