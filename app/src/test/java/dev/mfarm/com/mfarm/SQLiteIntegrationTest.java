@@ -755,6 +755,86 @@ public class SQLiteIntegrationTest {
         stmt.close();
     }
 
+    // --- GAP 24: Reversal of Updated Record Restores Before-Image ---
+    @Test
+    public void testReversalOfUpdatedRecordRestoresBeforeImage() throws Exception {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        Statement stmt = conn.createStatement();
+
+        // 1. Existing animal Daisy with repro_status = 'Open'
+        stmt.execute("INSERT INTO animas (id, name, tag_number, repro_status) VALUES (100, 'Daisy', 'COW-100', 'Open')");
+
+        // 2. Simulate import batch updating Daisy to 'Pregnant' with before-image JSON
+        String batchUuid = "UUID-UPDATE-RESTORE-TEST";
+        dev.mfarm.com.mfarm.sync.ExcelImporter.ImportSummary summary = new dev.mfarm.com.mfarm.sync.ExcelImporter.ImportSummary();
+        summary.batchUuid = batchUuid;
+        dev.mfarm.com.mfarm.sync.ExcelImporter.recordImportBatch(adapter, summary);
+
+        // Update Daisy and log before-image in import_batch_items
+        stmt.execute("UPDATE animas SET repro_status = 'Pregnant' WHERE id = 100");
+        dev.mfarm.com.mfarm.sync.ExcelImporter.logBatchItem(adapter, batchUuid, "animas", 100, "UPDATE", "{\"repro_status\":\"Open\"}");
+
+        // Verify pre-reversal state is Pregnant
+        ResultSet r1 = stmt.executeQuery("SELECT repro_status FROM animas WHERE id = 100");
+        assertTrue(r1.next());
+        assertEquals("Pregnant", r1.getString(1));
+        r1.close();
+
+        // 3. Execute Reversal -> MUST restore repro_status to 'Open'
+        boolean reversed = dev.mfarm.com.mfarm.sync.ExcelImporter.reverseImportBatch(adapter, batchUuid);
+        assertTrue(reversed);
+
+        ResultSet r2 = stmt.executeQuery("SELECT repro_status FROM animas WHERE id = 100");
+        assertTrue(r2.next());
+        assertEquals("Open", r2.getString(1));
+        r2.close();
+
+        stmt.close();
+    }
+
+    // --- GAP 25: Mixed Import (Inserts + Updates) Reverses Atomically ---
+    @Test
+    public void testMixedInsertAndUpdateReversesAtomically() throws Exception {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        Statement stmt = conn.createStatement();
+
+        // Existing animal
+        stmt.execute("INSERT INTO animas (id, name, tag_number, repro_status) VALUES (200, 'Bella', 'COW-200', 'Open')");
+
+        String batchUuid = "UUID-MIXED-BATCH";
+        dev.mfarm.com.mfarm.sync.ExcelImporter.ImportSummary summary = new dev.mfarm.com.mfarm.sync.ExcelImporter.ImportSummary();
+        summary.batchUuid = batchUuid;
+
+        // Insert new animal
+        stmt.execute("INSERT INTO animas (id, name, tag_number, repro_status) VALUES (201, 'Calf New', 'COW-201', 'Open')");
+        dev.mfarm.com.mfarm.sync.ExcelImporter.logBatchItem(adapter, batchUuid, "animas", 201, "INSERT", null);
+
+        // Update existing animal
+        stmt.execute("UPDATE animas SET repro_status = 'Pregnant' WHERE id = 200");
+        dev.mfarm.com.mfarm.sync.ExcelImporter.logBatchItem(adapter, batchUuid, "animas", 200, "UPDATE", "{\"repro_status\":\"Open\"}");
+
+        summary.animalsImported = 2;
+        dev.mfarm.com.mfarm.sync.ExcelImporter.recordImportBatch(adapter, summary);
+
+        // Execute Reversal
+        boolean reversed = dev.mfarm.com.mfarm.sync.ExcelImporter.reverseImportBatch(adapter, batchUuid);
+        assertTrue(reversed);
+
+        // Assert inserted record deleted
+        ResultSet rNew = stmt.executeQuery("SELECT COUNT(*) FROM animas WHERE id = 201");
+        assertTrue(rNew.next());
+        assertEquals(0, rNew.getInt(1));
+        rNew.close();
+
+        // Assert updated record restored to Open
+        ResultSet rOld = stmt.executeQuery("SELECT repro_status FROM animas WHERE id = 200");
+        assertTrue(rOld.next());
+        assertEquals("Open", rOld.getString(1));
+        rOld.close();
+
+        stmt.close();
+    }
+
     // --- GAP 22: Excel Exporter CSV Formula Injection Encoding ---
     @Test
     public void testExcelExporterFormulaEncoding() {
