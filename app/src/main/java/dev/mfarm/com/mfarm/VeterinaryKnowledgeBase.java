@@ -579,6 +579,150 @@ public final class VeterinaryKnowledgeBase {
                 "May 2026",
                 new HashSet<>(Arrays.asList("Excessive salivation", "Severe weakness", "Sudden death"))
         ));
+
+        // 21. Newcastle Disease (ND)
+        DISEASES.add(new DiseaseGuide(
+                "newcastle", "Newcastle Disease (ND)", "Avian Pneumoencephalitis", "Poultry (Chicks, Hens, Roosters)", "Viral Disease (Notifiable)",
+                "CRITICAL", true, false, "Avian Paramyxovirus Serotype 1",
+                "Highly contagious via aerosol droplets, contaminated feed, water, clothing, and equipment.",
+                "Unvaccinated flocks, introduction of birds of unknown health status, poor biosecurity.",
+                "2 to 15 days.",
+                Arrays.asList("Lethargy", "Loss of appetite", "Slight cough or sneeze"),
+                Arrays.asList("Respiratory distress (gasping, coughing)", "Nervous signs (twisted neck/torticollis, circling, paralysis of legs/wings)", "Greenish-white watery diarrhoea", "Sharp drop in egg production with soft-shelled eggs", "Swelling of tissues around eyes and neck"),
+                Arrays.asList("Sudden high mortality (up to 100% in unvaccinated flocks)", "Complete paralysis"),
+                Arrays.asList("Check for twisted necks and paralysis", "Observe droppings for greenish-white color", "Monitor daily mortality rate"),
+                Arrays.asList("STRICTLY ISOLATE AFFECTED FLOCK", "DO NOT MOVE LIVE BIRDS", "Burn or deeply bury dead birds immediately"),
+                "No specific treatment. Broad-spectrum antibiotics may be used to control secondary bacterial infections, accompanied by vitamin supplements.",
+                "Viral isolation, PCR, Haemagglutination Inhibition (HI) test.",
+                "Strict biosecurity and routine vaccination of the entire flock.",
+                "Live (LaSota/B1) and inactivated vaccines following a strict age-based schedule.",
+                "Control farm access. Disinfect footwear and equipment.",
+                "Highly fatal and rapid spread. Prevention relies entirely on timely vaccination.",
+                "Observe withdrawal for any supportive antibiotics.",
+                "OIE Terrestrial Manual; Local Vet Guidelines",
+                "May 2026",
+                new HashSet<>(Arrays.asList("Fever", "Loss of appetite", "Cough", "Nasal discharge", "Difficult breathing", "Diarrhoea", "Severe weakness", "Sudden death"))
+        ));
+
+        // 22. Coccidiosis
+        DISEASES.add(new DiseaseGuide(
+                "coccidiosis", "Coccidiosis", "Blood Scours", "Poultry, Rabbits, Goats, Calves", "Parasitic Infection",
+                "HIGH", false, false, "Eimeria species (Protozoa)",
+                "Fecal-oral route; ingestion of sporulated oocysts from contaminated litter, feed, or water.",
+                "Damp/wet litter, overcrowding, warm/humid conditions, immunosuppression.",
+                "4 to 8 days.",
+                Arrays.asList("Ruffled feathers/rough coat", "Huddling", "Decreased feed intake"),
+                Arrays.asList("Bloody or mucoid diarrhoea", "Pale combs and wattles in poultry", "Severe weight loss / stunted growth", "Lethargy and drooping wings"),
+                Arrays.asList("Severe bloody diarrhoea", "High mortality in young stock", "Extreme dehydration"),
+                Arrays.asList("Inspect droppings for blood or orange mucus", "Check litter moisture levels"),
+                Arrays.asList("Treat drinking water with anticoccidials immediately", "Remove and replace wet litter", "Isolate severely affected animals"),
+                "Veterinary treatment involves administration of anticoccidial drugs (e.g., Amprolium, Toltrazuril, Sulphonamides) via drinking water.",
+                "Fecal examination for oocysts, post-mortem intestinal lesion scoring.",
+                "Maintain dry, clean litter/bedding; avoid overcrowding; use coccidiostats in feed for young stock.",
+                "Live attenuated vaccines available for poultry (typically administered at hatchery).",
+                "Clean waterers daily. Prevent water spillage.",
+                "Can cause devastating losses in young stock very rapidly.",
+                "Strict withdrawal periods apply for sulphonamides and other anticoccidials (check label).",
+                "Veterinary Parasitology Manuals",
+                "May 2026",
+                new HashSet<>(Arrays.asList("Loss of appetite", "Diarrhoea", "Dehydration", "Pale mucous membranes", "Severe weakness", "Sudden death"))
+        ));
+
+        // 23. Contagious Caprine Pleuropneumonia (CCPP)
+        DISEASES.add(new DiseaseGuide(
+                "ccpp", "Contagious Caprine Pleuropneumonia (CCPP)", "Goat Lung Plague", "Goats", "Bacterial Respiratory Disease",
+                "HIGH", true, false, "Mycoplasma capricolum subsp. capripneumoniae",
+                "Direct contact via inhalation of infective respiratory droplets.",
+                "Introduction of infected goats, overcrowding, stressful transport, communal grazing.",
+                "6 to 14 days.",
+                Arrays.asList("High fever (up to 41°C)", "Lethargy", "Loss of appetite"),
+                Arrays.asList("Frequent violent coughing", "Labored breathing with grunting", "Nasal discharge", "Standing with forelegs wide apart and neck extended", "Frothy nasal discharge in late stages"),
+                Arrays.asList("Severe respiratory distress", "Collapse", "High mortality in acute outbreaks"),
+                Arrays.asList("Listen for coughing within the goat herd", "Observe breathing difficulty and posture"),
+                Arrays.asList("ISOLATE AFFECTED GOATS IMMEDIATELY", "Contact veterinarian for urgent antibiotic treatment", "Avoid stressing or driving the goats"),
+                "Early treatment with specific antibiotics (e.g., Tylosin, Oxytetracycline, Macrolides) is highly effective.",
+                "Clinical signs, post-mortem findings (severe unilateral pleuropneumonia), PCR, Serology.",
+                "Quarantine new introductions; annual vaccination.",
+                "Inactivated vaccines available and highly recommended in endemic areas.",
+                "Prevent contact with untested herds at grazing or watering points.",
+                "Highly contagious among goats. Early treatment saves lives.",
+                "Follow milk and meat withdrawal periods for administered antibiotics.",
+                "OIE Terrestrial Manual",
+                "May 2026",
+                new HashSet<>(Arrays.asList("Fever", "Loss of appetite", "Cough", "Nasal discharge", "Difficult breathing", "Severe weakness"))
+        ));
+
+        // 24. Peste des Petits Ruminants (PPR)
+        DISEASES.add(new DiseaseGuide(
+                "ppr", "Peste des Petits Ruminants (PPR)", "Goat Plague", "Goats, Sheep", "Viral Disease (Notifiable)",
+                "CRITICAL", true, false, "Small Ruminant Morbillivirus",
+                "Direct contact with secretions/excretions (tears, nasal discharge, feces) of infected animals.",
+                "Unvaccinated flocks, communal grazing, mixing with animals from markets.",
+                "3 to 6 days.",
+                Arrays.asList("High fever", "Dullness", "Clear nasal/eye discharge"),
+                Arrays.asList("Thick, purulent (yellow/green) nasal and eye discharge crusting the muzzle", "Sores and ulcers in the mouth and gums", "Foul breath", "Severe profuse, watery, foul-smelling diarrhoea", "Coughing and pneumonia"),
+                Arrays.asList("Severe dehydration and emaciation", "Abortion in pregnant females", "High flock mortality (up to 90%)"),
+                Arrays.asList("Check mouth for ulcers/sores", "Inspect muzzle for crusty discharge", "Monitor for severe diarrhoea"),
+                Arrays.asList("ISOLATE FLOCK IMMEDIATELY", "REPORT TO VETERINARY AUTHORITIES", "Provide soft feed and rehydration fluids"),
+                "No specific antiviral treatment. Broad-spectrum antibiotics are given to prevent secondary bacterial pneumonia/enteritis, along with supportive fluid therapy.",
+                "Clinical signs, swabs for PCR/ELISA.",
+                "Annual vaccination; strict quarantine of new or returning animals.",
+                "Live attenuated vaccine (Nigeria 75/1 strain) gives long-lasting immunity.",
+                "Disinfect premises. Control animal movement.",
+                "Devastating disease for sheep and goats. Vaccination is critical.",
+                "Observe withdrawal for supportive treatments.",
+                "FAO PPR Global Eradication Programme; OIE",
+                "May 2026",
+                new HashSet<>(Arrays.asList("Fever", "Loss of appetite", "Nasal discharge", "Difficult breathing", "Diarrhoea", "Dehydration", "Mouth/foot blisters", "Abortion", "Severe weakness", "Sudden death"))
+        ));
+
+        // 25. Fall Armyworm (FAW)
+        DISEASES.add(new DiseaseGuide(
+                "faw", "Fall Armyworm (FAW)", "Spodoptera frugiperda", "Crops (Maize, Sorghum, Pasture grasses)", "Agricultural Pest",
+                "HIGH", false, false, "Insect Pest (Lepidoptera)",
+                "Moths fly long distances and lay egg masses on plant leaves.",
+                "Continuous maize cropping, late planting, lack of field scouting.",
+                "Eggs hatch in 2-3 days.",
+                Arrays.asList("Small window-pane feeding marks on leaves", "Presence of egg masses on underside of leaves"),
+                Arrays.asList("Extensive ragged feeding damage on leaves", "Presence of sawdust-like frass (caterpillar droppings) in the whorl", "Caterpillars with a distinct inverted 'Y' on the head and 4 spots on the rear", "Damage to tassels and ears in older plants"),
+                Arrays.asList("Complete destruction of the crop whorl (dead heart)", "Severe yield loss"),
+                Arrays.asList("Scout fields weekly", "Look inside the maize whorl for caterpillars and frass"),
+                Arrays.asList("Apply recommended targeted insecticides (e.g., Emamectin benzoate, Spinosad) directly into the whorl", "Hand-pick caterpillars in small plots", "Use ash or sand in whorls for small-scale control"),
+                "Agronomic advice: Rotate active ingredients to prevent resistance. Apply chemicals early morning or late evening.",
+                "Visual identification of the pest and characteristic damage.",
+                "Early planting, crop rotation, push-pull intercropping strategies, maintaining field hygiene.",
+                "N/A",
+                "Destroy volunteer plants and crop residues that harbor pests.",
+                "Chemical control is only effective when caterpillars are small and before they hide deep in the whorl.",
+                "Observe pre-harvest intervals (PHI) for all applied pesticides.",
+                "FAO Fall Armyworm Guidelines",
+                "May 2026",
+                new HashSet<>(Arrays.asList("Crop Damage", "Pest Infestation", "Reduced Yield")) // Note: Requires adding these to ALL_FARMER_SYMPTOMS if used for symptoms checker
+        ));
+
+        // 26. Coffee Wilt Disease (CWD)
+        DISEASES.add(new DiseaseGuide(
+                "cwd", "Coffee Wilt Disease (CWD)", "Tracheomycosis", "Crops (Robusta Coffee)", "Fungal Plant Disease",
+                "CRITICAL", false, false, "Fusarium xylarioides (Fungus)",
+                "Soil-borne; enters through roots or stem wounds. Spread by contaminated tools, soil, or infected seedlings.",
+                "Slashing/weeding injuries to stems, using unsterilized pruning tools, planting infected seedlings.",
+                "Months to years.",
+                Arrays.asList("Yellowing and curling of leaves on one or more branches", "Loss of leaf turgor"),
+                Arrays.asList("Progressive wilting of branches, turning brown and drying", "Premature ripening and drying of berries", "Blue-black staining under the bark of affected stems", "Complete death of the tree"),
+                Arrays.asList("Rapid spread to neighboring trees in the plantation", "100% death of affected trees"),
+                Arrays.asList("Peel bark at the base of wilting stems to check for dark staining", "Monitor plantation for spreading wilt patches"),
+                Arrays.asList("Uproot and BURN infected trees completely (including roots) ON SITE", "DO NOT drag infected trees across the field", "Sterilize all tools with fire or bleach immediately"),
+                "No chemical cure exists for infected trees. Management focuses on containment and replanting with resistant varieties.",
+                "Visual symptoms, blue-black vascular discoloration, laboratory culture.",
+                "Plant CWD-resistant Robusta clones. Avoid injuring stems during weeding.",
+                "N/A",
+                "Sterilize secateurs/saws between trees. Do not move soil or seedlings from infected areas.",
+                "Once infected, the tree cannot be saved. Prompt destruction prevents spread.",
+                "N/A",
+                "UCDA (Uganda Coffee Development Authority) Guidelines",
+                "May 2026",
+                new HashSet<>(Arrays.asList("Wilting", "Leaf Yellowing", "Plant Death", "Reduced Yield")) // Note: Needs updating ALL_FARMER_SYMPTOMS
+        ));
     }
 
     public static List<DiseaseGuide> getAllDiseases() {
@@ -651,7 +795,13 @@ public final class VeterinaryKnowledgeBase {
             "Retained placenta",
             "Severe weakness",
             "Sudden death",
-            "Bloat"
+            "Bloat",
+            "Crop Damage",
+            "Pest Infestation",
+            "Reduced Yield",
+            "Wilting",
+            "Leaf Yellowing",
+            "Plant Death"
     };
 
     private VeterinaryKnowledgeBase() {}

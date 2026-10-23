@@ -15,6 +15,8 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.Spinner;
+import android.widget.AdapterView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -48,6 +50,9 @@ public class AnimalDoctorActivity extends AppCompatActivity {
     private boolean showingSymptomResults = false;
     private final boolean[] selectedSymptomBooleans = new boolean[VeterinaryKnowledgeBase.ALL_FARMER_SYMPTOMS.length];
 
+    private Spinner spinnerSpeciesFilter;
+    private String selectedSpecies = "All Animals & Crops";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -67,10 +72,29 @@ public class AnimalDoctorActivity extends AppCompatActivity {
         View headerView = inflater.inflate(R.layout.header_animal_doctor, lvDiseases, false);
 
         etSearchDisease = headerView.findViewById(R.id.etSearchDisease);
+        spinnerSpeciesFilter = headerView.findViewById(R.id.spinnerSpeciesFilter);
         btnOpenSymptomChecker = headerView.findViewById(R.id.btnOpenSymptomChecker);
         btnTogglePreventiveCare = headerView.findViewById(R.id.btnTogglePreventiveCare);
         layoutPreventiveCare = headerView.findViewById(R.id.layoutPreventiveCare);
         tvGuideHeader = headerView.findViewById(R.id.tvGuideHeader);
+
+        // Setup Species/Crop Spinner
+        String[] speciesOptions = {"All Animals & Crops", "Cattle", "Goats", "Sheep", "Poultry (Chicks, Hens, etc.)", "Rabbits", "Crops (Coffee, Maize, etc.)"};
+        ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, speciesOptions);
+        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerSpeciesFilter.setAdapter(spinnerAdapter);
+
+        spinnerSpeciesFilter.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                selectedSpecies = parent.getItemAtPosition(position).toString();
+                filterDiseases(etSearchDisease.getText().toString().trim().toLowerCase());
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
 
         // Emergency card clicks
         headerView.findViewById(R.id.btnEmergencyAnthrax).setOnClickListener(v -> openDetail("anthrax"));
@@ -83,21 +107,12 @@ public class AnimalDoctorActivity extends AppCompatActivity {
 
         // Load disease data
         List<VeterinaryKnowledgeBase.DiseaseGuide> allDiseases = VeterinaryKnowledgeBase.getAllDiseases();
-        Log.d(TAG, "Diagnostic Log - VeterinaryKnowledgeBase.getAllDiseases().size(): " + allDiseases.size());
-        if (!allDiseases.isEmpty()) {
-            Log.d(TAG, "Diagnostic Log - First Disease ID: " + allDiseases.get(0).id + ", Name: " + allDiseases.get(0).name);
-        }
-
+        
         masterGuideList.addAll(allDiseases);
         filteredGuideList.addAll(masterGuideList);
 
         adapter = new DiseaseAdapter(this, filteredGuideList);
         lvDiseases.setAdapter(adapter);
-
-        Log.d(TAG, "Diagnostic Log - masterGuideList size: " + masterGuideList.size());
-        Log.d(TAG, "Diagnostic Log - filteredGuideList size: " + filteredGuideList.size());
-        Log.d(TAG, "Diagnostic Log - lvDiseases null? " + (lvDiseases == null));
-        Log.d(TAG, "Diagnostic Log - Adapter attached? " + (lvDiseases != null && lvDiseases.getAdapter() != null));
 
         // Search listener
         etSearchDisease.addTextChangedListener(new TextWatcher() {
@@ -145,20 +160,42 @@ public class AnimalDoctorActivity extends AppCompatActivity {
 
     private void filterDiseases(String query) {
         filteredGuideList.clear();
-        if (query.isEmpty()) {
-            filteredGuideList.addAll(masterGuideList);
-            tvGuideHeader.setText("COMMON LIVESTOCK DISEASES & GUIDES");
-        } else {
-            for (VeterinaryKnowledgeBase.DiseaseGuide d : masterGuideList) {
-                if (d.name.toLowerCase().contains(query)
-                        || (d.aliases != null && d.aliases.toLowerCase().contains(query))
-                        || d.cause.toLowerCase().contains(query)
-                        || d.category.toLowerCase().contains(query)
-                        || d.symptomsString().toLowerCase().contains(query)
-                        || d.veterinaryManagement.toLowerCase().contains(query)) {
-                    filteredGuideList.add(d);
+        for (VeterinaryKnowledgeBase.DiseaseGuide d : masterGuideList) {
+            
+            // Check species filter
+            boolean speciesMatch = true;
+            if (!"All Animals & Crops".equals(selectedSpecies)) {
+                if ("Cattle".equals(selectedSpecies) && !d.species.toLowerCase().contains("cattle") && !d.species.toLowerCase().contains("calves")) speciesMatch = false;
+                else if ("Goats".equals(selectedSpecies) && !d.species.toLowerCase().contains("goat")) speciesMatch = false;
+                else if ("Sheep".equals(selectedSpecies) && !d.species.toLowerCase().contains("sheep")) speciesMatch = false;
+                else if ("Poultry (Chicks, Hens, etc.)".equals(selectedSpecies) && !d.species.toLowerCase().contains("poultry") && !d.species.toLowerCase().contains("chicken") && !d.species.toLowerCase().contains("bird")) speciesMatch = false;
+                else if ("Rabbits".equals(selectedSpecies) && !d.species.toLowerCase().contains("rabbit")) speciesMatch = false;
+                else if ("Crops (Coffee, Maize, etc.)".equals(selectedSpecies) && !d.species.toLowerCase().contains("crop") && !d.species.toLowerCase().contains("plant") && !d.species.toLowerCase().contains("coffee") && !d.species.toLowerCase().contains("maize")) speciesMatch = false;
+            }
+            
+            if (!speciesMatch) continue;
+
+            // Check query string
+            boolean queryMatch = true;
+            if (!query.isEmpty()) {
+                if (!d.name.toLowerCase().contains(query)
+                        && (d.aliases == null || !d.aliases.toLowerCase().contains(query))
+                        && !d.cause.toLowerCase().contains(query)
+                        && !d.category.toLowerCase().contains(query)
+                        && !d.symptomsString().toLowerCase().contains(query)
+                        && !d.veterinaryManagement.toLowerCase().contains(query)) {
+                    queryMatch = false;
                 }
             }
+            
+            if (queryMatch) {
+                filteredGuideList.add(d);
+            }
+        }
+        
+        if (query.isEmpty() && "All Animals & Crops".equals(selectedSpecies)) {
+            tvGuideHeader.setText("COMMON LIVESTOCK DISEASES & GUIDES");
+        } else {
             tvGuideHeader.setText("SEARCH RESULTS (" + filteredGuideList.size() + " MATCHES)");
         }
         adapter.notifyDataSetChanged();

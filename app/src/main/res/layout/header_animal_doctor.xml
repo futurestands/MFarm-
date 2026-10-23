@@ -10,7 +10,7 @@
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="12dp">
+        android:layout_marginBottom="8dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etSearchDisease"
@@ -20,6 +20,14 @@
             android:imeOptions="actionSearch"
             android:inputType="text" />
     </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Species Filter -->
+    <Spinner
+        android:id="@+id/spinnerSpeciesFilter"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/spinner" />
 
     <!-- Quick Action Buttons: Symptom Checker & Preventive Care -->
     <LinearLayout
