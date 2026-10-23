@@ -133,11 +133,11 @@ public class MainActivity extends AppCompatActivity
 
         if (id == R.id.nav_homr) {
             showDashboard();
-        } else if (id == R.id.nav_search) {
-            startActivity(new Intent(this, SearchActivity.class));
         } else if (id == R.id.nav_camera) {
             _fragAnimalList = AnimalListFragment.newInstance();
             getSupportFragmentManager().beginTransaction().addToBackStack("A").replace(R.id.main_frame, _fragAnimalList, "A").commit();
+        } else if (id == R.id.nav_batches) {
+            startActivity(new Intent(this, BatchListActivity.class));
         } else if (id == R.id.nav_gallery) {
             _fragMedication = MilkProductionListFragment.newInstance();
             getSupportFragmentManager().beginTransaction().addToBackStack("M").replace(R.id.main_frame, _fragMedication, "M").commit();
@@ -148,36 +148,18 @@ public class MainActivity extends AppCompatActivity
             getSupportFragmentManager().beginTransaction().addToBackStack("B").replace(R.id.main_frame, _fragBreedingList, "B").commit();
         } else if (id == R.id.nav_feed) {
             startActivity(new Intent(this, FeedManagementActivity.class));
-        } else if (id == R.id.nav_income) {
-            startActivity(new Intent(this, IncomeActivity.class));
-        } else if (id == R.id.nav_expenses) {
-            _fragExpenseList = ExpenseListFragment.newInstance();
-            getSupportFragmentManager().beginTransaction().addToBackStack("E").replace(R.id.main_frame, _fragExpenseList, "E").commit();
-        } else if (id == R.id.nav_fin_dash) {
-            _fragFinDash = FinancialDashboardFragment.newInstance();
-            getSupportFragmentManager().beginTransaction().addToBackStack("F").replace(R.id.main_frame, _fragFinDash, "F").commit();
-        } else if (id == R.id.nav_crops) {
-            startActivity(new Intent(this, CropManagementActivity.class));
-        } else if (id == R.id.nav_disposal) {
-            startActivity(new Intent(this, DisposalActivity.class));
-        } else if (id == R.id.nav_movement) {
-            startActivity(new Intent(this, AnimalMovementActivity.class));
-        } else if (id == R.id.nav_batches) {
-            startActivity(new Intent(this, BatchListActivity.class));
-        } else if (id == R.id.nav_excel) {
-            startActivity(new Intent(this, ExcelManagementActivity.class));
-        } else if (id == R.id.nav_vaccination) {
-            _fragVaccinationList = VaccinationListFragment.newInstance();
-            getSupportFragmentManager().beginTransaction().addToBackStack("V").replace(R.id.main_frame, _fragVaccinationList, "V").commit();
         } else if (id == R.id.nav_inventory) {
             _fragInventoryList = InventoryListFragment.newInstance();
             getSupportFragmentManager().beginTransaction().addToBackStack("I").replace(R.id.main_frame, _fragInventoryList, "I").commit();
-        } else if (id == R.id.nav_send) {
-            startActivity(new Intent(this, ExportActivity.class));
-        } else if (id == R.id.nav_audit) {
-            startActivity(new Intent(this, AuditLogActivity.class));
-        } else if (id == R.id.nav_farm_sync) {
-            startActivity(new Intent(this, FarmSyncActivity.class));
+        } else if (id == R.id.nav_crops) {
+            startActivity(new Intent(this, CropManagementActivity.class));
+        } else if (id == R.id.nav_fin_dash) {
+            _fragFinDash = FinancialDashboardFragment.newInstance();
+            getSupportFragmentManager().beginTransaction().addToBackStack("F").replace(R.id.main_frame, _fragFinDash, "F").commit();
+        } else if (id == R.id.nav_excel) {
+            startActivity(new Intent(this, ExcelManagementActivity.class));
+        } else if (id == R.id.nav_settings) {
+            startActivity(new Intent(this, SettingsActivity.class));
         } else if (id == R.id.nav_settings) {
             startActivity(new Intent(this, SettingsActivity.class));
         }

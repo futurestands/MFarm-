@@ -7,85 +7,49 @@
             android:icon="@drawable/ic_home"
             android:title="Dashboard" />
         <item
-            android:id="@+id/nav_search"
-            android:icon="@drawable/ic_settings"
-            android:title="Search Records" />
-        <item
             android:id="@+id/nav_camera"
             android:icon="@drawable/ic_menu_camera"
             android:title="Animal List &amp; Pedigree" />
-        <item
-            android:id="@+id/nav_gallery"
-            android:icon="@drawable/ic_menu_gallery"
-            android:title="Milk Production" />
-        <item
-            android:id="@+id/nav_slideshow"
-            android:icon="@drawable/ic_menu_slideshow"
-            android:title="Health &amp; Treatments" />
-        <item
-            android:id="@+id/nav_manage"
-            android:icon="@drawable/ic_menu_manage"
-            android:title="Breeding &amp; Heat" />
-        <item
-            android:id="@+id/nav_feed"
-            android:icon="@drawable/ic_menu_manage"
-            android:title="Feed Management" />
-        <item
-            android:id="@+id/nav_vaccination"
-            android:icon="@drawable/ic_menu_slideshow"
-            android:title="Vaccination Schedule" />
-        <item
-            android:id="@+id/nav_inventory"
-            android:icon="@drawable/ic_menu_manage"
-            android:title="Inventory &amp; Supplies" />
-        <item
-            android:id="@+id/nav_income"
-            android:icon="@drawable/ic_menu_manage"
-            android:title="Income &amp; Sales" />
-        <item
-            android:id="@+id/nav_expenses"
-            android:icon="@drawable/ic_menu_manage"
-            android:title="Expenses" />
-        <item
-            android:id="@+id/nav_fin_dash"
-            android:icon="@drawable/ic_menu_manage"
-            android:title="Financial Dashboard" />
-        <item
-            android:id="@+id/nav_crops"
-            android:icon="@drawable/ic_menu_manage"
-            android:title="Crop &amp; Enterprise Management" />
-        <item
-            android:id="@+id/nav_disposal"
-            android:icon="@drawable/ic_menu_manage"
-            android:title="Offtake &amp; Animal Disposal" />
-        <item
-            android:id="@+id/nav_movement"
-            android:icon="@drawable/ic_menu_manage"
-            android:title="Farm Location Transfer" />
         <item
             android:id="@+id/nav_batches"
             android:icon="@drawable/ic_menu_manage"
             android:title="Group &amp; Batch Livestock" />
         <item
-            android:id="@+id/nav_excel"
+            android:id="@+id/nav_gallery"
+            android:icon="@drawable/ic_menu_gallery"
+            android:title="Milk Production" />
+        <item
+            android:id="@+id/nav_manage"
             android:icon="@drawable/ic_menu_manage"
-            android:title="Excel Management Centre" />
+            android:title="Breeding &amp; Heat" />
+        <item
+            android:id="@+id/nav_slideshow"
+            android:icon="@drawable/ic_menu_slideshow"
+            android:title="Veterinary &amp; Health" />
+        <item
+            android:id="@+id/nav_feed"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Feed Management" />
+        <item
+            android:id="@+id/nav_inventory"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Inventory &amp; Supplies" />
+        <item
+            android:id="@+id/nav_crops"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Crop &amp; Enterprise Management" />
+        <item
+            android:id="@+id/nav_fin_dash"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Financial Dashboard" />
     </group>
 
-    <item android:title="System &amp; Data">
+    <item android:title="System &amp; Settings">
         <menu>
             <item
-                android:id="@+id/nav_send"
-                android:icon="@drawable/ic_menu_send"
-                android:title="Reports &amp; Export" />
-            <item
-                android:id="@+id/nav_audit"
-                android:icon="@drawable/ic_settings"
-                android:title="Audit Logs" />
-            <item
-                android:id="@+id/nav_farm_sync"
-                android:icon="@drawable/ic_menu_share"
-                android:title="Farm Sync &amp; Backup" />
+                android:id="@+id/nav_excel"
+                android:icon="@drawable/ic_menu_manage"
+                android:title="Excel Management Centre" />
             <item
                 android:id="@+id/nav_settings"
                 android:icon="@drawable/ic_settings"

@@ -96,10 +96,6 @@
             android:label="Update Stock"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name=".ExportActivity"
-            android:label="Export Data"
-            android:theme="@style/AppTheme.NoActionBar" />
-        <activity
             android:name=".AnimalDetailActivity"
             android:label="Animal Details"
             android:theme="@style/AppTheme.NoActionBar" />
