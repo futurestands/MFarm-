@@ -38,7 +38,7 @@ public class SettingsActivity extends AppCompatActivity {
         findViewById(R.id.btnNavExport).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivity(new Intent(SettingsActivity.this, ExportActivity.class));
+                startActivity(new Intent(SettingsActivity.this, ExcelManagementActivity.class));
             }
         });
 
