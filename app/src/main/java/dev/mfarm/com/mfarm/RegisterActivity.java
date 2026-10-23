@@ -1,36 +1,42 @@
 package dev.mfarm.com.mfarm;
 
+import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.database.Cursor;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.DatePicker;
-import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import com.google.android.material.textfield.TextInputEditText;
+
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
+
+import dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter;
+import dev.mfarm.com.mfarm.dao.CategoryManager;
+import dev.mfarm.com.mfarm.dao.DatabaseAdapter;
+import dev.mfarm.com.mfarm.dao.DatabaseHelper;
 
 public class RegisterActivity extends AppCompatActivity {
-    Spinner spngender;
-    private ArrayAdapter<String> adapterForSpinner;
-    Button btnsave, btndate;
-    EditText edtname, edtbodyconformance, edtbodycolor;
-    Spinner spnbreed;
-    String breed_id = "1";
-    String gender = "Female";
-    String dob = "";
+    Spinner spngender, spinnerSpecies, spnbreed;
+    TextInputEditText edtname, edteartag, edtbodyconformance, edtbodycolor, edtdob;
+    Button btnsave;
 
-    private ArrayAdapter<String> adapterForBreedSpinner;
+    String gender = "Female";
+    String selectedSpecies = "Cattle";
+    String breed_id = "1";
+    String dob = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,22 +46,38 @@ public class RegisterActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setTitle("Individual Animal Registration");
         }
 
         spngender = findViewById(R.id.spngender);
-        LoadSpinnerGender();
-        edtname = findViewById(R.id.edtname);
+        spinnerSpecies = findViewById(R.id.spinnerSpecies);
         spnbreed = findViewById(R.id.edtbreed);
-        LoadBreedSpinner();
+        
+        edtname = findViewById(R.id.edtname);
+        edteartag = findViewById(R.id.edteartag);
         edtbodyconformance = findViewById(R.id.edtbodyconformance);
         edtbodycolor = findViewById(R.id.edtbodycolor);
-        btndate = findViewById(R.id.btndate);
+        edtdob = findViewById(R.id.edtdob);
+        btnsave = findViewById(R.id.btnsave);
 
-        btndate.setOnClickListener(new View.OnClickListener() {
+        loadSpeciesSpinner();
+        loadGenderSpinner();
+
+        edtdob.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 showDatePicker();
             }
+        });
+
+        spinnerSpecies.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                selectedSpecies = parent.getItemAtPosition(position).toString();
+                loadBreedSpinner(selectedSpecies);
+            }
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
         });
 
         spnbreed.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -65,19 +87,27 @@ public class RegisterActivity extends AppCompatActivity {
                     String breed_name = parent.getItemAtPosition(position).toString();
                     android.database.sqlite.SQLiteDatabase db = getDb();
                     if (db != null) {
-                        Cursor cursor = db.rawQuery("SELECT id FROM breeds WHERE name =?", new String[]{breed_name});
-                        if (cursor != null && cursor.moveToFirst()) {
-                            breed_id = cursor.getString(0);
+                        // First check old breeds table for cattle legacy compatibility
+                        Cursor c = db.rawQuery("SELECT id FROM breeds WHERE name =?", new String[]{breed_name});
+                        if (c != null && c.moveToFirst()) {
+                            breed_id = c.getString(0);
+                            c.close();
+                        } else {
+                            if (c != null) c.close();
+                            // Fallback to species_breeds id
+                            Cursor c2 = db.rawQuery("SELECT id FROM species_breeds WHERE breed_name =?", new String[]{breed_name});
+                            if (c2 != null && c2.moveToFirst()) {
+                                breed_id = c2.getString(0);
+                            }
+                            if (c2 != null) c2.close();
                         }
-                        if (cursor != null) cursor.close();
                     }
                 } else {
                     breed_id = "1";
                 }
             }
             @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
+            public void onNothingSelected(AdapterView<?> parent) {}
         });
 
         spngender.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -86,18 +116,18 @@ public class RegisterActivity extends AppCompatActivity {
                 gender = parent.getItemAtPosition(position).toString();
             }
             @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
+            public void onNothingSelected(AdapterView<?> parent) {}
         });
 
-        btnsave = findViewById(R.id.btnsave);
         btnsave.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                String tag = edteartag.getText().toString().trim();
                 String name = edtname.getText().toString().trim();
-                if (name.length() < 2) {
-                    Toast.makeText(getApplicationContext(), "Please enter animal name", Toast.LENGTH_LONG).show();
-                    edtname.requestFocus();
+                
+                if (tag.isEmpty() && name.isEmpty()) {
+                    Toast.makeText(getApplicationContext(), "Please enter an Ear Tag or Animal Name", Toast.LENGTH_LONG).show();
+                    edteartag.requestFocus();
                     return;
                 }
 
@@ -110,6 +140,8 @@ public class RegisterActivity extends AppCompatActivity {
 
                 Intent x = new Intent(getApplicationContext(), RegistrationActivity2.class);
                 x.putExtra("animal_name", name);
+                x.putExtra("ear_tag", tag);
+                x.putExtra("species", selectedSpecies);
                 x.putExtra("breed_id", breed_id);
                 x.putExtra("body_conf", edtbodyconformance.getText().toString().trim());
                 x.putExtra("gender", gender);
@@ -122,51 +154,66 @@ public class RegisterActivity extends AppCompatActivity {
 
     private void showDatePicker() {
         Calendar calendar = Calendar.getInstance();
-        new DatePickerDialog(this, new DatePickerDialog.OnDateSetListener() {
+        DatePickerDialog dpd = new DatePickerDialog(this, android.R.style.Theme_Holo_Light_Dialog_MinWidth, new DatePickerDialog.OnDateSetListener() {
             @Override
             public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
-                dob = dayOfMonth + "-" + (month + 1) + "-" + year;
-                btndate.setText(dob);
+                dob = String.format("%02d-%02d-%d", dayOfMonth, month + 1, year);
+                edtdob.setText(dob);
             }
-        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show();
+        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
+        
+        dpd.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        dpd.show();
     }
 
-    private void LoadSpinnerGender() {
-        try {
-            adapterForSpinner = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
-            adapterForSpinner.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-            adapterForSpinner.add("Female");
-            adapterForSpinner.add("Male");
-            spngender.setAdapter(adapterForSpinner);
-        } catch (Exception e) {
-            Log.v("RegisterActivity", e.getMessage());
-        }
+    private void loadGenderSpinner() {
+        ArrayAdapter<String> adapterForSpinner = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
+        adapterForSpinner.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        adapterForSpinner.add("Female");
+        adapterForSpinner.add("Male");
+        spngender.setAdapter(adapterForSpinner);
     }
 
-    private android.database.sqlite.SQLiteDatabase getDb() {
-        return dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(this);
+    private void loadSpeciesSpinner() {
+        List<String> species = new ArrayList<>();
+        species.add("Cattle");
+        species.add("Goat");
+        species.add("Sheep");
+        species.add("Rabbit");
+        species.add("Poultry");
+        
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, species);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerSpecies.setAdapter(adapter);
     }
 
-    private void LoadBreedSpinner() {
-        try {
-            adapterForBreedSpinner = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
-            adapterForBreedSpinner.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-            adapterForBreedSpinner.add("Select Breed");
+    private void loadBreedSpinner(String speciesName) {
+        ArrayAdapter<String> adapterForBreedSpinner = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
+        adapterForBreedSpinner.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        adapterForBreedSpinner.add("Select Breed");
 
-            android.database.sqlite.SQLiteDatabase db = getDb();
-            if (db == null) return;
-
-            Cursor cursor = db.rawQuery("SELECT id, name FROM breeds", null);
+        android.database.sqlite.SQLiteDatabase db = getDb();
+        if (db != null) {
+            Cursor cursor = null;
+            if ("Cattle".equalsIgnoreCase(speciesName)) {
+                // Use old breeds table for cattle backward compatibility
+                cursor = db.rawQuery("SELECT id, name FROM breeds ORDER BY name ASC", null);
+            } else {
+                cursor = db.rawQuery("SELECT id, breed_name FROM species_breeds WHERE species_name = ? ORDER BY breed_name ASC", new String[]{speciesName});
+            }
+            
             if (cursor != null && cursor.moveToFirst()) {
                 do {
                     adapterForBreedSpinner.add(cursor.getString(1));
                 } while (cursor.moveToNext());
             }
             if (cursor != null) cursor.close();
-            spnbreed.setAdapter(adapterForBreedSpinner);
-        } catch (Exception e) {
-            Log.v("RegisterActivity", e.getMessage());
         }
+        spnbreed.setAdapter(adapterForBreedSpinner);
+    }
+
+    private android.database.sqlite.SQLiteDatabase getDb() {
+        return dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(this);
     }
 
     @Override

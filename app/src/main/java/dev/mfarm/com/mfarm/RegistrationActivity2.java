@@ -1,6 +1,5 @@
 package dev.mfarm.com.mfarm;
 
-import android.app.DatePickerDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
@@ -8,18 +7,14 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
-import android.widget.DatePicker;
 import android.widget.EditText;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
-import java.util.Calendar;
-
 public class RegistrationActivity2 extends AppCompatActivity {
     Button btndem, btnSire, btnsave;
-    EditText edtbirthdate, edtweaningdate, edtbirthweight, edtweaningweight;
 
     private String animalName = "";
     private String breedId = "1";
@@ -38,6 +33,7 @@ public class RegistrationActivity2 extends AppCompatActivity {
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setTitle("Parentage & Photo");
         }
 
         Intent intent = getIntent();
@@ -59,27 +55,6 @@ public class RegistrationActivity2 extends AppCompatActivity {
         btnSire = findViewById(R.id.btnSire);
         btndem = findViewById(R.id.btndem);
         btnsave = findViewById(R.id.btnsave);
-        edtbirthdate = findViewById(R.id.edtbirthdate);
-        edtweaningdate = findViewById(R.id.edtweaningdate);
-        edtbirthweight = findViewById(R.id.edtbirhtweight);
-        edtweaningweight = findViewById(R.id.edtweaningweight);
-
-        View.OnClickListener dateClickListener = new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                final EditText target = (EditText) v;
-                Calendar calendar = Calendar.getInstance();
-                new DatePickerDialog(RegistrationActivity2.this, new DatePickerDialog.OnDateSetListener() {
-                    @Override
-                    public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
-                        target.setText(dayOfMonth + "-" + (month + 1) + "-" + year);
-                    }
-                }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show();
-            }
-        };
-
-        edtbirthdate.setOnClickListener(dateClickListener);
-        edtweaningdate.setOnClickListener(dateClickListener);
 
         btndem.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -100,15 +75,13 @@ public class RegistrationActivity2 extends AppCompatActivity {
             public void onClick(View v) {
                 Intent x = new Intent(getApplicationContext(), PhotoIntentActivity.class);
                 x.putExtra("animal_name", animalName);
+                x.putExtra("ear_tag", getIntent().getStringExtra("ear_tag"));
+                x.putExtra("species", getIntent().getStringExtra("species"));
                 x.putExtra("breed_id", breedId);
                 x.putExtra("body_conf", bodyConf);
                 x.putExtra("gender", gender);
                 x.putExtra("body_color", bodyColor);
                 x.putExtra("dob", dob);
-                x.putExtra("birth_date", edtbirthdate.getText().toString());
-                x.putExtra("birth_weight", edtbirthweight.getText().toString());
-                x.putExtra("weaning_date", edtweaningdate.getText().toString());
-                x.putExtra("weaning_weight", edtweaningweight.getText().toString());
                 x.putExtra("dam_id", damId);
                 x.putExtra("sire_id", sireId);
                 startActivity(x);
