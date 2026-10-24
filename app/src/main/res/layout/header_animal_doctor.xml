@@ -85,6 +85,7 @@
                 android:layout_marginBottom="8dp" />
 
             <TextView
+                android:id="@+id/tvPreventiveCareText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="• Tick Control: Dip or spray cattle regularly with approved acaricides to prevent ECF, Anaplasmosis, and Babesiosis.\n\n• Worm Control: Deworm cattle before and after the wet season using broad-spectrum anthelmintics.\n\n• Vaccination Schedule: Maintain annual herd vaccinations for Blackleg, Anthrax, LSD, and FMD as advised by MAAIF.\n\n• Nutrition &amp; Clean Water: Provide fresh clean water and balanced mineral licks to maintain strong immune defense.\n\n• Clean Milking Hygiene: Wash teats with clean water, use post-milking teat dip, and milk infected cows last.\n\n• Quarantine &amp; Biosecurity: Isolate newly purchased cattle for 30 days. Spray new stock for ticks before introducing to herd.\n\n• Carcass Handling: DO NOT open carcasses of animals that die suddenly. Bury deeply with quicklime or burn."

@@ -88,6 +88,7 @@ public class AnimalDoctorActivity extends AppCompatActivity {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 selectedSpecies = parent.getItemAtPosition(position).toString();
+                updateContextualContent();
                 filterDiseases(etSearchDisease.getText().toString().trim().toLowerCase());
             }
 
@@ -158,22 +159,42 @@ public class AnimalDoctorActivity extends AppCompatActivity {
         });
     }
 
+    private void updateContextualContent() {
+        TextView tvPrevCare = layoutPreventiveCare.findViewById(R.id.tvPreventiveCareText);
+        View cardEmergency = lvDiseases.findViewById(R.id.cardEmergency); // note it's in the header
+
+        if ("Crops (Coffee, Maize, etc.)".equals(selectedSpecies)) {
+            btnTogglePreventiveCare.setText("🛡️ CROP PROTECTION");
+            if (tvPrevCare != null) {
+                tvPrevCare.setText("• Crop Rotation: Avoid planting the same crop in the same field consecutively.\n\n• Field Scouting: Walk fields weekly to detect early signs of pest damage or fungal spots.\n\n• Tool Hygiene: Sterilize secateurs and slashers with heat or bleach to prevent spreading fungal diseases like Coffee Wilt.\n\n• Weed Control: Keep fields clear of weeds which harbor pests and compete for nutrients.\n\n• Safe Chemical Use: Always observe Pre-Harvest Intervals (PHI) and wear protective gear when spraying.");
+            }
+            if (cardEmergency != null) cardEmergency.setVisibility(View.GONE);
+            btnOpenSymptomChecker.setText("🔎 CHECK CROP SYMPTOMS");
+        } else if ("Poultry (Chicks, Hens, etc.)".equals(selectedSpecies)) {
+            btnTogglePreventiveCare.setText("🛡️ BIOSECURITY");
+            if (tvPrevCare != null) {
+                tvPrevCare.setText("• Biosecurity: Restrict farm access. Use footbaths at coop entrances.\n\n• Vaccination: Strictly follow Newcastle, Gumboro, and Fowl Pox schedules.\n\n• Hygiene: Keep litter dry to prevent Coccidiosis.\n\n• Isolation: Quarantine new birds for 14 days before joining the flock.");
+            }
+            if (cardEmergency != null) cardEmergency.setVisibility(View.GONE);
+            btnOpenSymptomChecker.setText("🔎 CHECK BIRD SYMPTOMS");
+        } else {
+            btnTogglePreventiveCare.setText("🛡️ PREVENTIVE CARE");
+            if (tvPrevCare != null) {
+                tvPrevCare.setText("• Tick Control: Dip or spray livestock regularly with approved acaricides to prevent ECF and Anaplasmosis.\n\n• Worm Control: Deworm before and after wet seasons.\n\n• Vaccinations: Follow schedules for FMD, LSD, Blackleg, and Anthrax.\n\n• Quarantine: Isolate new stock for 30 days.\n\n• Cleanliness: Maintain clean milking and housing environments.");
+            }
+            if (cardEmergency != null) cardEmergency.setVisibility(View.VISIBLE);
+            btnOpenSymptomChecker.setText("🔎 CHECK SYMPTOMS");
+        }
+    }
+
     private void filterDiseases(String query) {
         filteredGuideList.clear();
+        String stableTarget = mapSpinnerToStableTarget(selectedSpecies);
+        
         for (VeterinaryKnowledgeBase.DiseaseGuide d : masterGuideList) {
             
             // Check species filter
-            boolean speciesMatch = true;
-            if (!"All Animals & Crops".equals(selectedSpecies)) {
-                if ("Cattle".equals(selectedSpecies) && !d.species.toLowerCase().contains("cattle") && !d.species.toLowerCase().contains("calves")) speciesMatch = false;
-                else if ("Goats".equals(selectedSpecies) && !d.species.toLowerCase().contains("goat")) speciesMatch = false;
-                else if ("Sheep".equals(selectedSpecies) && !d.species.toLowerCase().contains("sheep")) speciesMatch = false;
-                else if ("Poultry (Chicks, Hens, etc.)".equals(selectedSpecies) && !d.species.toLowerCase().contains("poultry") && !d.species.toLowerCase().contains("chicken") && !d.species.toLowerCase().contains("bird")) speciesMatch = false;
-                else if ("Rabbits".equals(selectedSpecies) && !d.species.toLowerCase().contains("rabbit")) speciesMatch = false;
-                else if ("Crops (Coffee, Maize, etc.)".equals(selectedSpecies) && !d.species.toLowerCase().contains("crop") && !d.species.toLowerCase().contains("plant") && !d.species.toLowerCase().contains("coffee") && !d.species.toLowerCase().contains("maize")) speciesMatch = false;
-            }
-            
-            if (!speciesMatch) continue;
+            if (!d.targets(stableTarget)) continue;
 
             // Check query string
             boolean queryMatch = true;
@@ -193,12 +214,22 @@ public class AnimalDoctorActivity extends AppCompatActivity {
             }
         }
         
-        if (query.isEmpty() && "All Animals & Crops".equals(selectedSpecies)) {
+        if (query.isEmpty() && "ALL".equals(stableTarget)) {
             tvGuideHeader.setText("COMMON LIVESTOCK DISEASES & GUIDES");
         } else {
             tvGuideHeader.setText("SEARCH RESULTS (" + filteredGuideList.size() + " MATCHES)");
         }
         adapter.notifyDataSetChanged();
+    }
+    
+    private String mapSpinnerToStableTarget(String selection) {
+        if ("Cattle".equals(selection)) return "CATTLE";
+        if ("Goats".equals(selection)) return "GOAT";
+        if ("Sheep".equals(selection)) return "SHEEP";
+        if ("Poultry (Chicks, Hens, etc.)".equals(selection)) return "POULTRY";
+        if ("Rabbits".equals(selection)) return "RABBIT";
+        if ("Crops (Coffee, Maize, etc.)".equals(selection)) return "CROP";
+        return "ALL";
     }
 
     private void showSymptomCheckerDialog() {
@@ -228,12 +259,14 @@ public class AnimalDoctorActivity extends AppCompatActivity {
             }
 
             showingSymptomResults = true;
-            tvGuideHeader.setText("POSSIBLE CONDITIONS TO CONSIDER (" + matches.size() + " MATCHES)");
+            tvGuideHeader.setText("UNCONFIRMED MATCHES (" + matches.size() + ") - SEEK PROFESSIONAL ADVICE");
             adapter.notifyDataSetChanged();
 
-            Toast.makeText(AnimalDoctorActivity.this,
-                    "Possible conditions to consider based on " + selectedSet.size() + " sign(s). Veterinary examination may be required.",
-                    Toast.LENGTH_LONG).show();
+            new AlertDialog.Builder(AnimalDoctorActivity.this)
+                    .setTitle("Automated Match Results")
+                    .setMessage("Found " + matches.size() + " possible conditions based on " + selectedSet.size() + " sign(s).\n\nWARNING: These are NOT confirmed diagnoses. Many diseases share similar symptoms. Please consult a qualified veterinarian or agronomist for accurate diagnosis and treatment.")
+                    .setPositiveButton("Understood", null)
+                    .show();
         });
 
         builder.setNegativeButton("Clear / Reset", (dialog, which) -> {
