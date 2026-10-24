@@ -74,8 +74,18 @@ public class MainActivity extends AppCompatActivity
         NavigationView navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
-        if (savedInstanceState == null) {
+        if (getIntent() != null && "dev.mfarm.com.mfarm.OPEN_VACCINATIONS".equals(getIntent().getAction())) {
+            showVaccinationList();
+        } else if (savedInstanceState == null) {
             showDashboard();
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (intent != null && "dev.mfarm.com.mfarm.OPEN_VACCINATIONS".equals(intent.getAction())) {
+            showVaccinationList();
         }
     }
 
@@ -97,6 +107,13 @@ public class MainActivity extends AppCompatActivity
         _fragDashboard = DashboardFragment.newInstance();
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.main_frame, _fragDashboard, "D")
+                .commit();
+    }
+
+    private void showVaccinationList() {
+        _fragVaccinationList = VaccinationListFragment.newInstance();
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.main_frame, _fragVaccinationList, "V")
                 .commit();
     }
 

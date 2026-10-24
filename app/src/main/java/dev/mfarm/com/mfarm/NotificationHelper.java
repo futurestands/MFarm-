@@ -43,6 +43,7 @@ public class NotificationHelper extends ContextWrapper {
 
     public NotificationCompat.Builder getVaccinationNotification(String title, String message, int requestCode) {
         Intent intent = new Intent(this, MainActivity.class);
+        intent.setAction("dev.mfarm.com.mfarm.OPEN_VACCINATIONS");
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, requestCode, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -50,7 +51,7 @@ public class NotificationHelper extends ContextWrapper {
         return new NotificationCompat.Builder(getApplicationContext(), CHANNEL_ID)
                 .setContentTitle(title)
                 .setContentText(message)
-                .setSmallIcon(R.drawable.health)
+                .setSmallIcon(R.mipmap.ic_launcher)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent);
     }

@@ -267,6 +267,11 @@ public class ImportPreviewActivity extends AppCompatActivity {
         int cropCount = ExcelImporter.importCropActivities(adapterDb, cropRows, summary);
 
         ExcelImporter.recordImportBatch(adapterDb, summary);
+        
+        // Schedule alarms for newly imported pending vaccinations
+        if (vacCount > 0) {
+            AlarmScheduler.reschedulePending(this);
+        }
 
         new AlertDialog.Builder(this)
                 .setTitle("Import Complete")
