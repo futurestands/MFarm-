@@ -76,6 +76,25 @@ public final class VeterinaryKnowledgeBase {
             this.matchedSymptoms = matchedSymptoms;
         }
 
+        public boolean isCrop() {
+            return category != null && (category.toLowerCase().contains("crop") || category.toLowerCase().contains("agricultural") || category.toLowerCase().contains("plant"));
+        }
+
+        public boolean targets(String specificTarget) {
+            if ("ALL".equalsIgnoreCase(specificTarget)) return true;
+            if (species == null) return false;
+            
+            String s = species.toLowerCase();
+            if ("CATTLE".equalsIgnoreCase(specificTarget) && (s.contains("cattle") || s.contains("calves"))) return true;
+            if ("GOAT".equalsIgnoreCase(specificTarget) && s.contains("goat")) return true;
+            if ("SHEEP".equalsIgnoreCase(specificTarget) && s.contains("sheep")) return true;
+            if ("POULTRY".equalsIgnoreCase(specificTarget) && (s.contains("poultry") || s.contains("chicken") || s.contains("hen") || s.contains("chick"))) return true;
+            if ("RABBIT".equalsIgnoreCase(specificTarget) && s.contains("rabbit")) return true;
+            if ("CROP".equalsIgnoreCase(specificTarget) && isCrop()) return true;
+            
+            return false;
+        }
+
         public String symptomsString() {
             StringBuilder sb = new StringBuilder();
             if (earlySigns != null) for (String s : earlySigns) sb.append(s).append(" ");
