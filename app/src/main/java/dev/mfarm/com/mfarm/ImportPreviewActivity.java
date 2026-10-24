@@ -1,7 +1,10 @@
 package dev.mfarm.com.mfarm;
 
 import android.content.DialogInterface;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -16,7 +19,11 @@ import androidx.appcompat.widget.Toolbar;
 
 import com.google.android.material.textfield.TextInputEditText;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -36,9 +43,16 @@ public class ImportPreviewActivity extends AppCompatActivity {
     private List<String> previewLogs = new ArrayList<>();
     private ArrayAdapter<String> adapter;
     private List<Map<String, String>> flockRows = new ArrayList<>();
+    private List<Map<String, String>> breedingRows = new ArrayList<>();
+    private List<Map<String, String>> kiddingRows = new ArrayList<>();
+    private List<Map<String, String>> vaccineRows = new ArrayList<>();
     private List<Map<String, String>> disposalRows = new ArrayList<>();
     private List<Map<String, String>> financialRows = new ArrayList<>();
+    private List<Map<String, String>> cropRows = new ArrayList<>();
+    private List<Map<String, String>> batchRows = new ArrayList<>();
     private boolean isLoaded = false;
+    private Uri importUri;
+    private String fileName = "Unknown File";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,9 +61,16 @@ public class ImportPreviewActivity extends AppCompatActivity {
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        String uriStr = getIntent().getStringExtra("import_uri");
+        if (uriStr != null) {
+            importUri = Uri.parse(uriStr);
+            fileName = getFileName(importUri);
+        }
+
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setTitle("John.xlsx Excel Import Preview");
+            getSupportActionBar().setTitle("Import Preview: " + fileName);
         }
 
         btnLoadWorkbook = findViewById(R.id.btnLoadWorkbook);
@@ -61,10 +82,15 @@ public class ImportPreviewActivity extends AppCompatActivity {
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, previewLogs);
         lvPreviewDetails.setAdapter(adapter);
 
+        btnLoadWorkbook.setText("Parse Selected File");
         btnLoadWorkbook.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                loadJohnWorkbookData();
+                if (importUri != null) {
+                    parseCsvFile(importUri);
+                } else {
+                    Toast.makeText(ImportPreviewActivity.this, "No file selected", Toast.LENGTH_SHORT).show();
+                }
             }
         });
 
@@ -83,85 +109,111 @@ public class ImportPreviewActivity extends AppCompatActivity {
         });
     }
 
-    private void loadJohnWorkbookData() {
+    private String getFileName(Uri uri) {
+        String result = "Farm_Template_File.csv";
+        if (uri.getScheme() != null && uri.getScheme().equals("content")) {
+            Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+            try {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                    if (idx >= 0) {
+                        result = cursor.getString(idx);
+                    }
+                }
+            } finally {
+                if (cursor != null) cursor.close();
+            }
+        } else if (uri.getPath() != null) {
+            result = uri.getPath();
+            int cut = result.lastIndexOf('/');
+            if (cut != -1) {
+                result = result.substring(cut + 1);
+            }
+        }
+        return result;
+    }
+
+    private void parseCsvFile(Uri uri) {
         flockRows.clear();
+        breedingRows.clear();
+        kiddingRows.clear();
+        vaccineRows.clear();
         disposalRows.clear();
         financialRows.clear();
+        cropRows.clear();
+        batchRows.clear();
         previewLogs.clear();
 
-        // Populate sample structured rows matching John.xlsx 6 worksheets
-        // 1. FLOCK OVERVIEW
-        addFlock("3", "N/A", "N/A", "M", "06-05-2023", "Bought from Masyoro", "Brown and white", "Main Buck");
-        addFlock("323-2", "8", "N/A", "F", "12-07-2021", "Born in this herd", "Brown and white", "Large frame, bears twins");
-        addFlock("1.6.23.2", "323-2", "N/A", "F", "23-06-2023", "Born in this herd", "Brown Kalahari", "Fostered at Nkesiga");
-        addFlock("617-10", "N/A", "Herbert", "F", "12-09-2020", "Born in this herd", "Black head and white", "");
-        addFlock("361-1", "N/A", "Herbert", "F", "07-06-2021", "Born in this herd", "Brown and white", "Short compact frame");
-        addFlock("T15 030", "Bumbuli", "Bumbuli", "F", "12-05-2023", "Big Female from Bumbuli", "Brown and white", "Very Large body frame");
-        addFlock("New Born", "323-2", "3", "M", "10-10-2025", "Born in this herd", "White, big brown", "Castrated");
-        addFlock("New Born**", "323-2", "3", "F", "10-10-2025", "Born in this herd", "Brown and white", "Promising Doe to be maintained for breeding");
+        int parsedRows = 0;
+        try {
+            InputStream is = getContentResolver().openInputStream(uri);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+            String line;
+            String headerLine = null;
+            List<String> headers = null;
 
-        // 2. DISPOSAL
-        addDisposal("15-06-2026", "608-9", "F", "5", "Death", "Dog attack");
-        addDisposal("31-08-2026", "49-11", "F", "6", "Sold", "Market sale");
-        addDisposal("10-10-2026", "359-6", "F", "5", "Sold", "Market sale");
+            while ((line = reader.readLine()) != null) {
+                if (line.trim().isEmpty() || line.startsWith("#")) continue;
 
-        // 3. FINANCIAL RECORDS
-        addFinancial("13-06-2026", "GT2", "PPR Vaccine", "15000", "", "", "", "", "Caprine vaccination");
-        addFinancial("05-07-2026", "", "", "", "05-07-2026", "CF3", "Coffee Sales", "120000", "Coffee harvest");
-        addFinancial("06-07-2026", "", "", "", "06-07-2026", "CW1", "Cow Sale", "1500000", "Sold from Kicwamba");
-        addFinancial("01-08-2026", "", "", "", "01-08-2026", "GT2", "Goat Sale", "250000", "Live goat sale");
+                if (headerLine == null) {
+                    headerLine = line.toLowerCase();
+                    headers = Arrays.asList(headerLine.split(","));
+                    continue;
+                }
 
-        previewLogs.add("=== WORKBOOK PARSED: John.xlsx ===");
-        previewLogs.add("• Sheet 1: VACCINATION SCHEDULE — 3 caprine vaccine protocols");
-        previewLogs.add("• Sheet 2: FLOCK OVERVIEW — " + flockRows.size() + " goat records (2 temporary newborn tags flagged)");
-        previewLogs.add("• Sheet 3: BREEDING RECORD — 15 mating & expected kidding logs");
-        previewLogs.add("• Sheet 4: KIDDING RECORD — 7 kidding birth events (Single, Twins)");
-        previewLogs.add("• Sheet 5: DISPOSAL — " + disposalRows.size() + " offtake logs (Death, Sold)");
-        previewLogs.add("• Sheet 6: FINANCIAL RECORDS — " + financialRows.size() + " transaction logs (GT2, CW1, CF3)");
+                String[] parts = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", -1);
+                Map<String, String> rowMap = new HashMap<>();
+                for (int i = 0; i < headers.size() && i < parts.length; i++) {
+                    String val = parts[i].replace("\"", "").trim();
+                    if (val.startsWith("'")) val = val.substring(1);
+                    rowMap.put(headers.get(i).trim(), val);
+                }
 
-        tvImportStats.setText(String.format(Locale.US, "Parsed %d Animals | %d Disposals | %d Financials\nStatus: Ready for Review & Approval", flockRows.size(), disposalRows.size(), financialRows.size()));
-        adapter.notifyDataSetChanged();
-        isLoaded = true;
-        btnApproveImport.setEnabled(true);
-        btnResolveAmbiguous.setEnabled(true);
-    }
+                parsedRows++;
 
-    private void addFlock(String tag, String dam, String sire, String sex, String dob, String origin, String color, String notes) {
-        Map<String, String> m = new HashMap<>();
-        m.put("tag_no", tag);
-        m.put("dam_id", dam);
-        m.put("sire_id", sire);
-        m.put("sex", sex);
-        m.put("dob", dob);
-        m.put("origin", origin);
-        m.put("color", color);
-        m.put("comments", notes);
-        flockRows.add(m);
-    }
+                // Route based on detected headers
+                if (headers.contains("tag_no") && headers.contains("species") && headers.contains("dob")) {
+                    flockRows.add(rowMap);
+                } else if (headers.contains("batch_id") && headers.contains("initial_quantity")) {
+                    batchRows.add(rowMap);
+                } else if (headers.contains("female_tag") && headers.contains("mating_date")) {
+                    breedingRows.add(rowMap);
+                } else if (headers.contains("disease_name") && headers.contains("vaccine_name")) {
+                    vaccineRows.add(rowMap);
+                } else if (headers.contains("disposal_date") && headers.contains("method")) {
+                    disposalRows.add(rowMap);
+                } else if (headers.contains("crop_type") && headers.contains("activity_type")) {
+                    cropRows.add(rowMap);
+                } else if (headers.contains("type") && headers.contains("amount") && headers.contains("project_code")) {
+                    financialRows.add(rowMap);
+                } else if (headers.contains("eggs_collected") && headers.contains("batch_id")) {
+                    // Eggs route - handled in batches or separate? Ignore for now or route appropriately.
+                }
+            }
+            reader.close();
 
-    private void addDisposal(String date, String tag, String sex, String age, String method, String cause) {
-        Map<String, String> m = new HashMap<>();
-        m.put("disposal_date", date);
-        m.put("tag_no", tag);
-        m.put("sex", sex);
-        m.put("age", age);
-        m.put("method", method);
-        m.put("cause", cause);
-        disposalRows.add(m);
-    }
+            previewLogs.add("=== WORKBOOK PARSED: " + fileName + " ===");
+            if (!flockRows.isEmpty()) previewLogs.add("• INDIVIDUAL LIVESTOCK — " + flockRows.size() + " records");
+            if (!batchRows.isEmpty()) previewLogs.add("• LIVESTOCK BATCHES — " + batchRows.size() + " records");
+            if (!breedingRows.isEmpty()) previewLogs.add("• BREEDING & BIRTHS — " + breedingRows.size() + " records");
+            if (!vaccineRows.isEmpty()) previewLogs.add("• HEALTH & VACCINES — " + vaccineRows.size() + " records");
+            if (!disposalRows.isEmpty()) previewLogs.add("• DISPOSALS — " + disposalRows.size() + " records");
+            if (!cropRows.isEmpty()) previewLogs.add("• CROP ACTIVITIES — " + cropRows.size() + " records");
+            if (!financialRows.isEmpty()) previewLogs.add("• FINANCES — " + financialRows.size() + " records");
 
-    private void addFinancial(String expDate, String expCode, String expDesc, String expAmt, String incDate, String incCode, String incDesc, String incAmt, String notes) {
-        Map<String, String> m = new HashMap<>();
-        m.put("exp_date", expDate);
-        m.put("exp_code", expCode);
-        m.put("exp_desc", expDesc);
-        m.put("exp_amount", expAmt);
-        m.put("inc_date", incDate);
-        m.put("inc_code", incCode);
-        m.put("inc_desc", incDesc);
-        m.put("inc_amount", incAmt);
-        m.put("comments", notes);
-        financialRows.add(m);
+            if (parsedRows == 0) {
+                previewLogs.add("No valid records found. Ensure you are using a standard MFarm CSV Template.");
+            }
+
+            tvImportStats.setText(String.format(Locale.US, "Parsed %d total records from CSV\nStatus: Ready for Review & Approval", parsedRows));
+            adapter.notifyDataSetChanged();
+            isLoaded = parsedRows > 0;
+            btnApproveImport.setEnabled(isLoaded);
+            btnResolveAmbiguous.setEnabled(!flockRows.isEmpty());
+
+        } catch (Exception e) {
+            Toast.makeText(this, "Error parsing file: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private void resolveAmbiguousTagsDialog() {
@@ -170,7 +222,7 @@ public class ImportPreviewActivity extends AppCompatActivity {
 
         new AlertDialog.Builder(this)
                 .setTitle("Resolve Ambiguous Newborn Tag")
-                .setMessage("Two records use temporary tag 'New Born'. Assign a unique permanent tag number for import:")
+                .setMessage("Records use temporary tag 'New Born'. Assign a unique permanent tag number for import:")
                 .setView(input)
                 .setPositiveButton("Assign Tag", new DialogInterface.OnClickListener() {
                     @Override
@@ -193,10 +245,6 @@ public class ImportPreviewActivity extends AppCompatActivity {
                 .show();
     }
 
-    private List<Map<String, String>> breedingRows = new ArrayList<>();
-    private List<Map<String, String>> kiddingRows = new ArrayList<>();
-    private List<Map<String, String>> vaccineRows = new ArrayList<>();
-
     private void executeApprovedImport() {
         if (!isLoaded) {
             Toast.makeText(this, "Please load workbook first", Toast.LENGTH_SHORT).show();
@@ -210,19 +258,21 @@ public class ImportPreviewActivity extends AppCompatActivity {
         ExcelImporter.ImportSummary summary = new ExcelImporter.ImportSummary();
 
         int animCount = ExcelImporter.importFlockOverview(adapterDb, flockRows, summary);
+        animCount += ExcelImporter.importLivestockBatches(adapterDb, batchRows, summary);
         int breedCount = ExcelImporter.importBreedingRecords(adapterDb, breedingRows, summary);
         int kidCount = ExcelImporter.importKiddingRecords(adapterDb, kiddingRows, summary);
         int vacCount = ExcelImporter.importVaccinationSchedules(adapterDb, vaccineRows, summary);
         int dispCount = ExcelImporter.importDisposalRecords(adapterDb, disposalRows, summary);
         int finCount = ExcelImporter.importFinancialRecords(adapterDb, financialRows, summary);
+        int cropCount = ExcelImporter.importCropActivities(adapterDb, cropRows, summary);
 
         ExcelImporter.recordImportBatch(adapterDb, summary);
 
         new AlertDialog.Builder(this)
                 .setTitle("Import Complete")
                 .setMessage(String.format(Locale.US,
-                        "Successfully Imported Batch:\n• %d Animals / Goats\n• %d Breeding Records\n• %d Kidding Records\n• %d Vaccinations\n• %d Disposal Logs\n• %d Financial Entries\n• %d Duplicate Records Skipped",
-                        animCount, breedCount, kidCount, vacCount, dispCount, finCount, summary.duplicateSkipped))
+                        "Successfully Imported Batch:\n• %d Livestock/Batches\n• %d Breeding Records\n• %d Kidding Records\n• %d Vaccinations\n• %d Disposal Logs\n• %d Financial Entries\n• %d Crop Activities\n• %d Duplicate Records Skipped",
+                        animCount, breedCount, kidCount, vacCount, dispCount, finCount, cropCount, summary.duplicateSkipped))
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
@@ -247,3 +297,4 @@ public class ImportPreviewActivity extends AppCompatActivity {
         return true;
     }
 }
+

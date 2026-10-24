@@ -240,6 +240,119 @@ public final class ExcelImporter {
     }
 
     /**
+     * Imports Livestock Batches
+     */
+    public static int importLivestockBatches(DatabaseAdapter db, List<Map<String, String>> batchRows, ImportSummary summary) {
+        if (batchRows == null || batchRows.isEmpty()) return 0;
+
+        int imported = 0;
+        db.beginTransaction();
+        try {
+            for (Map<String, String> row : batchRows) {
+                String batchId = normalizeTag(row.get("batch_id"));
+                String species = row.get("species");
+                String subtype = row.get("subtype");
+                String breed = row.get("breed_or_strain");
+                String purpose = row.get("purpose");
+                String initQtyStr = row.get("initial_quantity");
+                String acqDate = row.get("acquisition_date");
+                String ageStr = row.get("age_weeks");
+                String supplier = row.get("supplier");
+                String loc = row.get("location_name");
+                String pCode = row.get("project_code");
+                String costStr = row.get("purchase_cost");
+                String notes = row.get("notes");
+
+                if (batchId.isEmpty() || initQtyStr == null || initQtyStr.trim().isEmpty()) continue;
+
+                Cursor c = db.query("SELECT id FROM livestock_batches WHERE batch_id = ?", new String[]{batchId});
+                if (c != null && c.moveToFirst()) {
+                    c.close();
+                    if (summary != null) summary.duplicateSkipped++;
+                    continue;
+                }
+                if (c != null) c.close();
+
+                try {
+                    int qty = Integer.parseInt(initQtyStr.trim());
+                    double age = ageStr != null && !ageStr.trim().isEmpty() ? Double.parseDouble(ageStr.trim()) : 0;
+                    double cost = costStr != null && !costStr.trim().isEmpty() ? Double.parseDouble(costStr.trim()) : 0;
+                    
+                    long batchRowId = dev.mfarm.com.mfarm.dao.BatchManager.createBatch(db, batchId, species != null ? species : "Poultry", subtype != null ? subtype : "Group", breed, purpose, qty, acqDate, age, supplier, loc != null ? loc : "Main Farm", "", cost, pCode, notes);
+                    if (batchRowId != -1) {
+                        imported++;
+                        if (summary != null) logBatchItem(db, summary.batchUuid, "livestock_batches", batchRowId, "INSERT", null);
+                    }
+                } catch (Exception ignored) {}
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+
+        if (summary != null) summary.animalsImported += imported; // Group them under animals count
+        return imported;
+    }
+
+    /**
+     * Imports Crop Activities
+     */
+    public static int importCropActivities(DatabaseAdapter db, List<Map<String, String>> cropRows, ImportSummary summary) {
+        if (cropRows == null || cropRows.isEmpty()) return 0;
+
+        int imported = 0;
+        db.beginTransaction();
+        try {
+            for (Map<String, String> row : cropRows) {
+                String plotName = row.get("plot_name");
+                String cropType = row.get("crop_type");
+                String activityType = row.get("activity_type");
+                String activityDate = row.get("activity_date");
+                String inputs = row.get("inputs_used");
+                String costStr = row.get("cost");
+                String yieldStr = row.get("yield_harvested");
+                String notes = row.get("notes");
+
+                if (activityType == null || activityType.trim().isEmpty()) continue;
+
+                // Simple duplicate check
+                Cursor c = db.query("SELECT id FROM crop_activities WHERE activity_type = ? AND activity_date = ?", new String[]{activityType.trim(), activityDate});
+                if (c != null && c.moveToFirst()) {
+                    c.close();
+                    if (summary != null) summary.duplicateSkipped++;
+                    continue;
+                }
+                if (c != null) c.close();
+
+                try {
+                    double cost = costStr != null && !costStr.trim().isEmpty() ? Double.parseDouble(costStr.trim()) : 0;
+                    double yield = yieldStr != null && !yieldStr.trim().isEmpty() ? Double.parseDouble(yieldStr.trim()) : 0;
+
+                    Map<String, Object> values = new HashMap<>();
+                    values.put("plot_id", 0);
+                    values.put("activity_type", activityType.trim());
+                    values.put("activity_date", activityDate);
+                    values.put("inputs_used", inputs);
+                    values.put("cost", cost);
+                    values.put("yield_harvested", yield);
+                    values.put("notes", "Crop: " + cropType + " | Plot: " + plotName + " | " + (notes != null ? notes : ""));
+
+                    long rowId = db.insert("crop_activities", null, values);
+                    if (rowId != -1) {
+                        imported++;
+                        if (summary != null) logBatchItem(db, summary.batchUuid, "crop_activities", rowId, "INSERT", null);
+                    }
+                } catch (Exception ignored) {}
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+        
+        return imported;
+    }
+
+    /**
      * Imports Vaccination Schedule protocols from John.xlsx Sheet 1
      */
     public static int importVaccinationSchedules(DatabaseAdapter db, List<Map<String, String>> vaccineRows, ImportSummary summary) {
@@ -249,10 +362,10 @@ public final class ExcelImporter {
         db.beginTransaction();
         try {
             for (Map<String, String> row : vaccineRows) {
-                String disease = row.get("disease");
-                String vaccine = row.get("vaccine");
+                String disease = row.get("disease_name");
+                String vaccine = row.get("vaccine_name");
                 String frequency = row.get("frequency");
-                String schedDate = row.get("sched_date");
+                String schedDate = row.get("scheduled_date");
 
                 if (vaccine == null || vaccine.trim().isEmpty()) continue;
 

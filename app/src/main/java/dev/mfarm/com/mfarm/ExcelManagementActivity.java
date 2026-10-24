@@ -66,7 +66,12 @@ public class ExcelManagementActivity extends AppCompatActivity {
         btnImportExcel.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivity(new Intent(ExcelManagementActivity.this, ImportPreviewActivity.class));
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("*/*");
+                String[] mimetypes = {"text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"};
+                intent.putExtra(Intent.EXTRA_MIME_TYPES, mimetypes);
+                startActivityForResult(intent, 1001);
             }
         });
 
@@ -197,6 +202,17 @@ public class ExcelManagementActivity extends AppCompatActivity {
             loadImportBatches();
         } else {
             Toast.makeText(this, "Could not reverse import batch (conflict or already reversed)", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 1001 && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            android.net.Uri uri = data.getData();
+            Intent intent = new Intent(this, ImportPreviewActivity.class);
+            intent.putExtra("import_uri", uri.toString());
+            startActivity(intent);
         }
     }
 
