@@ -177,7 +177,7 @@ public class CropManagementActivity extends AppCompatActivity {
                 expVal.put("amount", cost);
                 expVal.put("date", dateStr);
                 expVal.put("description", actType + " for " + cropType + (plotName.isEmpty() ? "" : " (" + plotName + ")"));
-                expVal.put("project_code", "CF3");
+                expVal.put("project_code", resolveEnterpriseCode(cropType));
                 adapter.insert("expenses", null, expVal);
             }
 
@@ -188,7 +188,7 @@ public class CropManagementActivity extends AppCompatActivity {
                 incVal.put("amount", cost);
                 incVal.put("date", dateStr);
                 incVal.put("description", "Sale of " + cropType + (yieldVal > 0 ? " (" + yieldVal + " kg)" : ""));
-                incVal.put("project_code", "CF3");
+                incVal.put("project_code", resolveEnterpriseCode(cropType));
                 adapter.insert("income", null, incVal);
             }
 
@@ -208,6 +208,11 @@ public class CropManagementActivity extends AppCompatActivity {
         } finally {
             adapter.endTransaction();
         }
+    }
+
+    private String resolveEnterpriseCode(String cropType) {
+        if (cropType != null && cropType.toUpperCase().contains("CF3")) return "CF3";
+        return "GEN"; // General enterprise if not coffee
     }
 
     @Override

@@ -30,7 +30,8 @@ public class JdbcCursor implements Cursor {
             ResultSetMetaData meta = rs.getMetaData();
             int count = meta.getColumnCount();
             for (int i = 1; i <= count; i++) {
-                String name = meta.getColumnName(i);
+                String label = meta.getColumnLabel(i);
+                String name = (label != null && !label.isEmpty()) ? label : meta.getColumnName(i);
                 colNames.add(name);
                 colMap.put(name.toLowerCase(), i - 1);
             }

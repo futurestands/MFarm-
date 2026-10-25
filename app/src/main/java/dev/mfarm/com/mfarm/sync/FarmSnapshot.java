@@ -21,7 +21,7 @@ public final class FarmSnapshot {
     private static final String TAG = "FarmSnapshot";
     private static final String[] LINK_COLUMNS = {
             "animal_id", "item_id", "feed_id", "dam_id", "sire_id",
-            "related_animal_id", "offspring_id", "bull_id", "plot_id", "season_id", "batch_id", "unit_id"
+            "related_animal_id", "offspring_id", "bull_id", "plot_id", "season_id", "unit_id"
     };
 
     public static class ApplyResult {
@@ -90,6 +90,7 @@ public final class FarmSnapshot {
         int failed = 0;
         List<String> errors = new ArrayList<>();
 
+        FarmSyncSchema.setApplying(db, true);
         db.beginTransaction();
         try {
             List<JSONObject> ordered = orderForApply(records);
@@ -110,6 +111,7 @@ public final class FarmSnapshot {
             }
         } finally {
             db.endTransaction();
+            FarmSyncSchema.setApplying(db, false);
         }
         return new ApplyResult(applied, failed, errors);
     }
@@ -277,6 +279,23 @@ public final class FarmSnapshot {
                     || "deleted".equals(col) || "table_name".equals(col)) {
                 continue;
             }
+            if (isLinkColumn(col)) {
+                int idx = cursor.getColumnIndex(col);
+                if (idx >= 0 && !cursor.isNull(idx)) {
+                    String targetTable = targetTableForCol(col);
+                    String rawVal = cursor.getString(idx);
+                    if (rawVal != null && !rawVal.trim().isEmpty()) {
+                        try {
+                            int localId = Integer.parseInt(rawVal.trim());
+                            String uuid = uuidForLocalId(db, targetTable, localId);
+                            if (uuid != null) {
+                                links.put(col, uuid);
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+                continue;
+            }
             int idx = cursor.getColumnIndex(col);
             if (idx >= 0 && !cursor.isNull(idx)) {
                 fields.put(col, cursor.getString(idx));
@@ -388,6 +407,8 @@ public final class FarmSnapshot {
             }
             return true;
         } catch (Exception e) {
+            System.err.println("FarmSnapshot applyRecord error (" + rec.optString("table") + "): " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }
@@ -563,6 +584,20 @@ public final class FarmSnapshot {
             return null;
         } finally {
             c.close();
+        }
+    }
+
+    private static String uuidForLocalId(DatabaseAdapter db, String table, int localId) {
+        Cursor c = db.query(
+                "SELECT uuid FROM sync_index WHERE table_name=? AND local_id=? AND deleted=0",
+                new String[]{table, String.valueOf(localId)});
+        try {
+            if (c != null && c.moveToFirst()) {
+                return c.getString(0);
+            }
+            return null;
+        } finally {
+            if (c != null) c.close();
         }
     }
 
