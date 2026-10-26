@@ -174,8 +174,8 @@ public class ExpenseActivity extends AppCompatActivity {
             try {
                 DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
                 CategoryManager.CategoryResult catRes = CategoryManager.addCategory(adapterDb, "expense_categories", "category_name", category);
-                if (catRes == CategoryManager.CategoryResult.FAILED && CategoryManager.OTHER_SENTINEL.equals(spinnerCategory.getSelectedItem().toString())) {
-                    throw new RuntimeException("Failed to persist custom expense category");
+                if (catRes == CategoryManager.CategoryResult.FAILED) {
+                    throw new RuntimeException("Failed to persist expense category: " + category);
                 }
 
                 long rowId = db.insert("expenses", null, values);

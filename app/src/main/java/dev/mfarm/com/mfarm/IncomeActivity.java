@@ -215,8 +215,8 @@ public class IncomeActivity extends AppCompatActivity {
             try {
                 DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
                 CategoryManager.CategoryResult catRes = CategoryManager.addCategory(adapterDb, "income_categories", "category_name", category);
-                if (catRes == CategoryManager.CategoryResult.FAILED && CategoryManager.OTHER_SENTINEL.equals(spinnerCategory.getSelectedItem().toString())) {
-                    throw new RuntimeException("Failed to persist custom income category");
+                if (catRes == CategoryManager.CategoryResult.FAILED) {
+                    throw new RuntimeException("Failed to persist income category: " + category);
                 }
 
                 ContentValues values = new ContentValues();
