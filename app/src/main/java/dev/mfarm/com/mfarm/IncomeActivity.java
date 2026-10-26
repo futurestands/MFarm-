@@ -236,9 +236,11 @@ public class IncomeActivity extends AppCompatActivity {
             if ("Animal Sales".equalsIgnoreCase(category) && relatedAnimalId != -1) {
                 ContentValues statusValues = new ContentValues();
                 statusValues.put("lifecycle_status", "Sold");
-                int updatedRows = db.update("animas", statusValues, "id=?", new String[]{String.valueOf(relatedAnimalId)});
+                int updatedRows = db.update("animas", statusValues,
+                        "id=? AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')",
+                        new String[]{String.valueOf(relatedAnimalId)});
                 if (updatedRows != 1) {
-                    throw new RuntimeException("Expected exactly 1 animal row updated, but got " + updatedRows);
+                    throw new IllegalStateException("Animal ID " + relatedAnimalId + " is no longer active or has already been sold");
                 }
             }
 

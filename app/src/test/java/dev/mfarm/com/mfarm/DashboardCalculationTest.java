@@ -190,4 +190,16 @@ public class DashboardCalculationTest {
         dev.mfarm.com.mfarm.dao.CategoryManager.CategoryResult res3 = dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapter, "income_categories", "category_name", "Other (Specify)...");
         assertEquals(dev.mfarm.com.mfarm.dao.CategoryManager.CategoryResult.FAILED, res3);
     }
+
+    @Test
+    public void testDuplicateAnimalSaleRejection() throws Exception {
+        Statement stmt = conn.createStatement();
+        stmt.execute("INSERT INTO animas (id, name, species, lifecycle_status) VALUES (1, 'Cow Daisy', 'Cattle', 'Sold')");
+
+        // Attempting a conditional update on an animal already marked 'Sold' MUST affect 0 rows
+        int updatedRows = stmt.executeUpdate("UPDATE animas SET lifecycle_status = 'Sold' WHERE id = 1 AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')");
+        assertEquals(0, updatedRows);
+
+        stmt.close();
+    }
 }
