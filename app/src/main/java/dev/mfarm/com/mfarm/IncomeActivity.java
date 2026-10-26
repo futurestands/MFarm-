@@ -4,6 +4,7 @@ import android.app.DatePickerDialog;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.os.Bundle;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -16,24 +17,23 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
-import com.google.android.material.textfield.TextInputEditText;
-
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter;
+import dev.mfarm.com.mfarm.dao.CategoryManager;
+import dev.mfarm.com.mfarm.dao.DatabaseAdapter;
 import dev.mfarm.com.mfarm.dao.DatabaseHelper;
 
 public class IncomeActivity extends AppCompatActivity {
 
     private Spinner spinnerCategory, spinnerAnimal;
-    private TextInputEditText etAmount, etBuyer, etDescription;
+    private com.google.android.material.textfield.TextInputEditText etAmount, etBuyer, etDescription;
     private Button btnDate, btnSaveIncome;
     private TextView tvAnimalLabel;
-
     private Calendar calendar = Calendar.getInstance();
     private SimpleDateFormat dateFormatter = new SimpleDateFormat("dd-MM-yyyy", Locale.US);
     private List<String> animalNames = new ArrayList<>();
@@ -67,7 +67,7 @@ public class IncomeActivity extends AppCompatActivity {
         btnDate.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                new DatePickerDialog(IncomeActivity.this, R.style.GreenDatePickerTheme, new DatePickerDialog.OnDateSetListener() {
+                DatePickerDialog dpd = new DatePickerDialog(IncomeActivity.this, R.style.GreenDatePickerTheme, new DatePickerDialog.OnDateSetListener() {
                     @Override
                     public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
                         calendar.set(Calendar.YEAR, year);
@@ -75,7 +75,10 @@ public class IncomeActivity extends AppCompatActivity {
                         calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth);
                         updateDateButton();
                     }
-                }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show();
+                }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
+
+                dpd.getDatePicker().setMaxDate(System.currentTimeMillis());
+                dpd.show();
             }
         });
 
@@ -93,7 +96,7 @@ public class IncomeActivity extends AppCompatActivity {
                 }
 
                 if (layoutCustomCategory != null) {
-                    if (dev.mfarm.com.mfarm.dao.CategoryManager.OTHER_SENTINEL.equals(cat)) {
+                    if (CategoryManager.OTHER_SENTINEL.equals(cat)) {
                         layoutCustomCategory.setVisibility(View.VISIBLE);
                     } else {
                         layoutCustomCategory.setVisibility(View.GONE);
@@ -119,9 +122,9 @@ public class IncomeActivity extends AppCompatActivity {
 
     private void setupCategories() {
         android.database.sqlite.SQLiteDatabase db = getDb();
-        dev.mfarm.com.mfarm.dao.DatabaseAdapter adapterDb = new dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter(db);
+        DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
         String[] defaultCat = {"Milk Sales", "Animal Sales", "Crop Sales", "Egg Sales", "Breeding Services"};
-        List<String> categories = dev.mfarm.com.mfarm.dao.CategoryManager.getCategories(adapterDb, "income_categories", "category_name", defaultCat);
+        List<String> categories = CategoryManager.getCategories(adapterDb, "income_categories", "category_name", defaultCat);
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, categories);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -142,7 +145,7 @@ public class IncomeActivity extends AppCompatActivity {
         android.database.sqlite.SQLiteDatabase db = getDb();
         if (db == null) return;
 
-        Cursor cursor = db.rawQuery("SELECT id, name FROM animas WHERE lifecycle_status = 'Active'", null);
+        Cursor cursor = db.rawQuery("SELECT id, name FROM animas WHERE lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = ''", null);
         if (cursor != null && cursor.moveToFirst()) {
             do {
                 animalIds.add(cursor.getInt(0));
@@ -159,7 +162,7 @@ public class IncomeActivity extends AppCompatActivity {
     private void saveIncome() {
         String category = spinnerCategory.getSelectedItem().toString();
         com.google.android.material.textfield.TextInputEditText etCustomCat = findViewById(R.id.etCustomCategory);
-        if (dev.mfarm.com.mfarm.dao.CategoryManager.OTHER_SENTINEL.equals(category)) {
+        if (CategoryManager.OTHER_SENTINEL.equals(category)) {
             if (etCustomCat != null && !etCustomCat.getText().toString().trim().isEmpty()) {
                 category = etCustomCat.getText().toString().trim();
             } else {
@@ -194,12 +197,18 @@ public class IncomeActivity extends AppCompatActivity {
         int relatedAnimalId = (animalPos >= 0 && animalPos < animalIds.size()) ? animalIds.get(animalPos) : -1;
 
         android.database.sqlite.SQLiteDatabase db = getDb();
-        if (db == null) return;
+        if (db == null || !db.isOpen()) {
+            Toast.makeText(this, "Database unavailable", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         db.beginTransaction();
         try {
-            dev.mfarm.com.mfarm.dao.DatabaseAdapter adapterDb = new dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter(db);
-            dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapterDb, "income_categories", "category_name", category);
+            DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
+            CategoryManager.CategoryResult catRes = CategoryManager.addCategory(adapterDb, "income_categories", "category_name", category);
+            if (catRes == CategoryManager.CategoryResult.FAILED && CategoryManager.OTHER_SENTINEL.equals(spinnerCategory.getSelectedItem().toString())) {
+                throw new RuntimeException("Failed to persist custom income category");
+            }
 
             ContentValues values = new ContentValues();
             values.put("category", category);
@@ -219,19 +228,31 @@ public class IncomeActivity extends AppCompatActivity {
             if ("Animal Sales".equalsIgnoreCase(category) && relatedAnimalId != -1) {
                 ContentValues statusValues = new ContentValues();
                 statusValues.put("lifecycle_status", "Sold");
-                db.update("animas", statusValues, "id=?", new String[]{String.valueOf(relatedAnimalId)});
+                int updatedRows = db.update("animas", statusValues, "id=?", new String[]{String.valueOf(relatedAnimalId)});
+                if (updatedRows <= 0) {
+                    throw new RuntimeException("Failed to update animal status for ID " + relatedAnimalId);
+                }
             }
 
-            db.setTransactionSuccessful();
             DatabaseHelper.logAudit(db, "RECORD_INCOME", "FINANCIAL", rowId, "Income: " + category + " - " + amount);
 
+            db.setTransactionSuccessful();
             Toast.makeText(this, "Income Record Saved Successfully", Toast.LENGTH_SHORT).show();
             finish();
         } catch (Exception e) {
-            Toast.makeText(this, "Error saving income: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Error saving income: " + e.getMessage(), Toast.LENGTH_LONG).show();
         } finally {
             db.endTransaction();
         }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            finish();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override

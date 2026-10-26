@@ -22,9 +22,9 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
+import dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter;
 import dev.mfarm.com.mfarm.dao.CategoryManager;
 import dev.mfarm.com.mfarm.dao.DatabaseAdapter;
-import dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter;
 import dev.mfarm.com.mfarm.dao.DatabaseHelper;
 
 public class ExpenseActivity extends AppCompatActivity {
@@ -160,26 +160,34 @@ public class ExpenseActivity extends AppCompatActivity {
         values.put("date", date);
         values.put("description", description);
 
+        android.database.sqlite.SQLiteDatabase db = DatabaseHelper.getDatabase(this);
+        if (db == null || !db.isOpen()) {
+            Toast.makeText(this, "Database unavailable", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        db.beginTransaction();
         try {
-            android.database.sqlite.SQLiteDatabase db = DatabaseHelper.getDatabase(this);
-            if (db != null) {
-                db.beginTransaction();
-                try {
-                    DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
-                    CategoryManager.addCategory(adapterDb, "expense_categories", "category_name", category);
-                    long rowId = db.insert("expenses", null, values);
-                    if (rowId == -1) {
-                        throw new RuntimeException("Database insertion failed for expense record");
-                    }
-                    db.setTransactionSuccessful();
-                } finally {
-                    db.endTransaction();
-                }
+            DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
+            CategoryManager.CategoryResult catRes = CategoryManager.addCategory(adapterDb, "expense_categories", "category_name", category);
+            if (catRes == CategoryManager.CategoryResult.FAILED && CategoryManager.OTHER_SENTINEL.equals(spinnerCategory.getSelectedItem().toString())) {
+                throw new RuntimeException("Failed to persist custom expense category");
             }
+
+            long rowId = db.insert("expenses", null, values);
+            if (rowId == -1) {
+                throw new RuntimeException("Database insertion failed for expense record");
+            }
+
+            DatabaseHelper.logAudit(db, "RECORD_EXPENSE", "FINANCIAL", rowId, "Expense: " + category + " - " + amount);
+
+            db.setTransactionSuccessful();
             Toast.makeText(this, "Expense Saved Successfully", Toast.LENGTH_LONG).show();
             finish();
         } catch (Exception e) {
-            Toast.makeText(this, "Error saving expense: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Error saving expense: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        } finally {
+            db.endTransaction();
         }
     }
 

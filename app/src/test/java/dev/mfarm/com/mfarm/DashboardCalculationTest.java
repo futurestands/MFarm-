@@ -179,15 +179,15 @@ public class DashboardCalculationTest {
         JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
         
         // Add valid custom category
-        boolean added1 = dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapter, "income_categories", "category_name", "Consultancy Fees");
-        assertTrue("Custom category should be inserted", added1);
+        dev.mfarm.com.mfarm.dao.CategoryManager.CategoryResult res1 = dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapter, "income_categories", "category_name", "Consultancy Fees");
+        assertEquals(dev.mfarm.com.mfarm.dao.CategoryManager.CategoryResult.ADDED, res1);
 
-        // Duplicate case-insensitive insert must be rejected
-        boolean added2 = dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapter, "income_categories", "category_name", "consultancy fees");
-        org.junit.Assert.assertFalse("Duplicate case-insensitive category must be rejected", added2);
+        // Duplicate case-insensitive insert must return ALREADY_EXISTS
+        dev.mfarm.com.mfarm.dao.CategoryManager.CategoryResult res2 = dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapter, "income_categories", "category_name", "consultancy fees");
+        assertEquals(dev.mfarm.com.mfarm.dao.CategoryManager.CategoryResult.ALREADY_EXISTS, res2);
 
-        // Empty/Sentinel category must be rejected
-        boolean added3 = dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapter, "income_categories", "category_name", "Other (Specify)...");
-        org.junit.Assert.assertFalse("Sentinel string cannot be saved as a category", added3);
+        // Empty/Sentinel category must return FAILED
+        dev.mfarm.com.mfarm.dao.CategoryManager.CategoryResult res3 = dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapter, "income_categories", "category_name", "Other (Specify)...");
+        assertEquals(dev.mfarm.com.mfarm.dao.CategoryManager.CategoryResult.FAILED, res3);
     }
 }

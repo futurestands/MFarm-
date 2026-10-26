@@ -86,9 +86,15 @@ public final class CategoryManager {
         return list;
     }
 
-    public static boolean addCategory(DatabaseAdapter db, String table, String colName, String customValue) {
-        if (customValue == null || customValue.trim().isEmpty() || "Other (Specify)...".equalsIgnoreCase(customValue.trim())) {
-            return false;
+    public enum CategoryResult {
+        ADDED,
+        ALREADY_EXISTS,
+        FAILED
+    }
+
+    public static CategoryResult addCategory(DatabaseAdapter db, String table, String colName, String customValue) {
+        if (customValue == null || customValue.trim().isEmpty() || OTHER_SENTINEL.equalsIgnoreCase(customValue.trim())) {
+            return CategoryResult.FAILED;
         }
         String clean = customValue.trim();
 
@@ -97,17 +103,18 @@ public final class CategoryManager {
                 Cursor c = db.query("SELECT id FROM " + table + " WHERE LOWER(" + colName + ") = LOWER(?)", new String[]{clean});
                 if (c != null && c.moveToFirst()) {
                     c.close();
-                    return false; // Case-insensitive duplicate
+                    return CategoryResult.ALREADY_EXISTS; // Case-insensitive duplicate
                 }
                 if (c != null) c.close();
 
                 Map<String, Object> val = new HashMap<>();
                 val.put(colName, clean);
-                return db.insert(table, null, val) != -1;
+                long rowId = db.insert(table, null, val);
+                return rowId != -1 ? CategoryResult.ADDED : CategoryResult.FAILED;
             } catch (Exception e) {
-                return false;
+                return CategoryResult.FAILED;
             }
         }
-        return false;
+        return CategoryResult.FAILED;
     }
 }
