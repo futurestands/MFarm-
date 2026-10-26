@@ -274,11 +274,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-<<<<<<< Updated upstream
-                        android:text="Species: 0 Cattle • 0 Goats • 0 Poultry • 0 Rabbits"
-                        android:textColor="#558B2F"
-                        android:textSize="11sp" />
-=======
                         android:text="Species: 0 Cattle • 0 Goats • 0 Sheep • 0 Poultry • 0 Rabbits"
                         android:textColor="#558B2F"
                         android:textSize="11sp" />

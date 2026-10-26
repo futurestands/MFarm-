@@ -23,16 +23,18 @@ import java.util.List;
 import java.util.Locale;
 
 import dev.mfarm.com.mfarm.AlarmScheduler;
-import dev.mfarm.com.mfarm.dao.DatabaseHelper;
+import dev.mfarm.com.mfarm.CropManagementActivity;
+import dev.mfarm.com.mfarm.DisposalActivity;
 import dev.mfarm.com.mfarm.ExpenseActivity;
 import dev.mfarm.com.mfarm.FarmSyncActivity;
 import dev.mfarm.com.mfarm.IncomeActivity;
-import dev.mfarm.com.mfarm.MainActivity;
 import dev.mfarm.com.mfarm.MedicationActivity;
 import dev.mfarm.com.mfarm.MilkProductionActivity;
 import dev.mfarm.com.mfarm.R;
 import dev.mfarm.com.mfarm.RegisterActivity;
 import dev.mfarm.com.mfarm.ScheduleVaccinationActivity;
+import dev.mfarm.com.mfarm.dao.DatabaseHelper;
+import dev.mfarm.com.mfarm.dao.FormatUtils;
 import dev.mfarm.com.mfarm.intelligence.FarmBrief;
 import dev.mfarm.com.mfarm.intelligence.FarmIntelligenceEngine;
 import dev.mfarm.com.mfarm.intelligence.Insight;
@@ -58,13 +60,10 @@ public class DashboardFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_layout, container, false);
 
         TextView banner = view.findViewById(R.id.tvFarmSyncBanner);
-        banner.setText(FarmSyncManager.bannerText(getActivity()));
-        banner.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(getActivity(), FarmSyncActivity.class));
-            }
-        });
+        if (banner != null) {
+            banner.setText(FarmSyncManager.bannerText(getActivity()));
+            banner.setOnClickListener(v -> startActivity(new Intent(getActivity(), FarmSyncActivity.class)));
+        }
 
         tvFarmTitle = view.findViewById(R.id.tvFarmTitle);
         tvStatAnimals = view.findViewById(R.id.tvStatAnimals);
@@ -77,74 +76,16 @@ public class DashboardFragment extends Fragment {
         layoutWhatChangedContent = view.findViewById(R.id.layoutWhatChangedContent);
         layoutInsightsContent = view.findViewById(R.id.layoutInsightsContent);
 
+        setupQuickActions(view);
         loadDashboardStats(view);
 
-        Button imgregister = view.findViewById(R.id.imgregister);
-        imgregister.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(getActivity(), RegisterActivity.class));
-            }
-        });
-
-        Button imgmilk = view.findViewById(R.id.imgmilk);
-        imgmilk.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(getActivity(), MilkProductionActivity.class));
-            }
-        });
-
-        Button imgmedication = view.findViewById(R.id.imgmedication);
-        imgmedication.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(getActivity(), MedicationActivity.class));
-            }
-        });
-
-        Button imgexpenses = view.findViewById(R.id.imgexpenses);
-        imgexpenses.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(getActivity(), ExpenseActivity.class));
-            }
-        });
-
-        Button imgvaccination = view.findViewById(R.id.imgvaccination);
-        imgvaccination.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(getActivity(), ScheduleVaccinationActivity.class));
-            }
-        });
-
-        Button imginventory = view.findViewById(R.id.imginventory);
-        imginventory.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                FragmentTransaction ft = getParentFragmentManager().beginTransaction();
-                ft.addToBackStack("I");
-                ft.replace(R.id.main_frame, InventoryListFragment.newInstance(), "I");
-                ft.commit();
-            }
-        });
-
-        Button imgbreeding = view.findViewById(R.id.imgbreeding);
-        if (imgbreeding != null) {
-            imgbreeding.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    FragmentTransaction ft = getParentFragmentManager().beginTransaction();
-                    ft.addToBackStack("B");
-                    ft.replace(R.id.main_frame, BreedingListFragment.newInstance(), "B");
-                    ft.commit();
-                }
-            });
-        }
-
-        loadDashboardStats(view);
         return view;
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        loadDashboardStats(view);
     }
 
     @Override
@@ -160,6 +101,53 @@ public class DashboardFragment extends Fragment {
         }
     }
 
+    private void setupQuickActions(View view) {
+        Button imgregister = view.findViewById(R.id.imgregister);
+        if (imgregister != null) {
+            imgregister.setOnClickListener(v -> startActivity(new Intent(getActivity(), RegisterActivity.class)));
+        }
+
+        Button imgmilk = view.findViewById(R.id.imgmilk);
+        if (imgmilk != null) {
+            imgmilk.setOnClickListener(v -> startActivity(new Intent(getActivity(), MilkProductionActivity.class)));
+        }
+
+        Button imgmedication = view.findViewById(R.id.imgmedication);
+        if (imgmedication != null) {
+            imgmedication.setOnClickListener(v -> startActivity(new Intent(getActivity(), MedicationActivity.class)));
+        }
+
+        Button imgexpenses = view.findViewById(R.id.imgexpenses);
+        if (imgexpenses != null) {
+            imgexpenses.setOnClickListener(v -> startActivity(new Intent(getActivity(), ExpenseActivity.class)));
+        }
+
+        Button imgvaccination = view.findViewById(R.id.imgvaccination);
+        if (imgvaccination != null) {
+            imgvaccination.setOnClickListener(v -> startActivity(new Intent(getActivity(), ScheduleVaccinationActivity.class)));
+        }
+
+        Button imginventory = view.findViewById(R.id.imginventory);
+        if (imginventory != null) {
+            imginventory.setOnClickListener(v -> {
+                FragmentTransaction ft = getParentFragmentManager().beginTransaction();
+                ft.addToBackStack("I");
+                ft.replace(R.id.main_frame, InventoryListFragment.newInstance(), "I");
+                ft.commit();
+            });
+        }
+
+        Button imgbreeding = view.findViewById(R.id.imgbreeding);
+        if (imgbreeding != null) {
+            imgbreeding.setOnClickListener(v -> {
+                FragmentTransaction ft = getParentFragmentManager().beginTransaction();
+                ft.addToBackStack("B");
+                ft.replace(R.id.main_frame, BreedingListFragment.newInstance(), "B");
+                ft.commit();
+            });
+        }
+    }
+
     private void loadDashboardStats(View view) {
         if (view == null) return;
         SQLiteDatabase db = DatabaseHelper.getDatabase(getContext());
@@ -169,9 +157,9 @@ public class DashboardFragment extends Fragment {
         try {
             Cursor cProfile = db.rawQuery("SELECT farm_name FROM farm_profile LIMIT 1", null);
             if (cProfile.moveToFirst() && cProfile.getString(0) != null && !cProfile.getString(0).isEmpty()) {
-                tvFarmTitle.setText(cProfile.getString(0));
+                if (tvFarmTitle != null) tvFarmTitle.setText(cProfile.getString(0));
             } else {
-                tvFarmTitle.setText("MFarm Dashboard");
+                if (tvFarmTitle != null) tvFarmTitle.setText("MFarm Dashboard");
             }
             cProfile.close();
         } catch (Exception ignored) {}
@@ -193,10 +181,12 @@ public class DashboardFragment extends Fragment {
             cBatches.close();
 
             int totalHeadcount = indivCount + batchCount;
-            if (batchCount > 0) {
-                tvStatAnimals.setText(totalHeadcount + " (" + indivCount + " Ind. / " + batchCount + " Batch)");
-            } else {
-                tvStatAnimals.setText(String.valueOf(indivCount));
+            if (tvStatAnimals != null) {
+                if (batchCount > 0) {
+                    tvStatAnimals.setText(totalHeadcount + " (" + indivCount + " Ind. / " + batchCount + " Batch)");
+                } else {
+                    tvStatAnimals.setText(String.valueOf(indivCount));
+                }
             }
 
             // Species breakdown
@@ -206,11 +196,7 @@ public class DashboardFragment extends Fragment {
             int poultry = countSpecies(db, "Poultry");
             int rabbits = countSpecies(db, "Rabbit");
 
-<<<<<<< Updated upstream
-            TextView tvSpecies = getView() != null ? getView().findViewById(R.id.tvDashSpeciesBreakdown) : null;
-=======
             TextView tvSpecies = view.findViewById(R.id.tvDashSpeciesBreakdown);
->>>>>>> Stashed changes
             if (tvSpecies != null) {
                 tvSpecies.setText(String.format(Locale.US, "Species: %d Cattle • %d Goats • %d Sheep • %d Poultry • %d Rabbits", cattle, goats, sheep, poultry, rabbits));
             }
@@ -230,11 +216,7 @@ public class DashboardFragment extends Fragment {
                 while (c1.moveToNext()) {
                     String dStr = c1.getString(0);
                     double amt = c1.getDouble(1);
-<<<<<<< Updated upstream
-                    if (dev.mfarm.com.mfarm.intelligence.FarmIntelligenceEngine.isSameMonth(dStr, targetMonth, targetYear)) {
-=======
                     if (isSameMonth(dStr, targetMonth, targetYear)) {
->>>>>>> Stashed changes
                         mIncome += amt;
                     }
                 }
@@ -246,48 +228,29 @@ public class DashboardFragment extends Fragment {
                 while (c2.moveToNext()) {
                     String dStr = c2.getString(0);
                     double amt = c2.getDouble(1);
-<<<<<<< Updated upstream
-                    if (dev.mfarm.com.mfarm.intelligence.FarmIntelligenceEngine.isSameMonth(dStr, targetMonth, targetYear)) {
-=======
                     if (isSameMonth(dStr, targetMonth, targetYear)) {
->>>>>>> Stashed changes
                         mExpense += amt;
                     }
                 }
                 c2.close();
             }
 
-<<<<<<< Updated upstream
-            double net = mIncome - mExpense;
-
-            View v = getView();
-            if (v != null) {
-                TextView tvInc = v.findViewById(R.id.tvDashMonthIncome);
-                TextView tvExp = v.findViewById(R.id.tvDashMonthExpense);
-                TextView tvNet = v.findViewById(R.id.tvDashMonthNet);
-
-                if (tvInc != null) tvInc.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(mIncome));
-                if (tvExp != null) tvExp.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(mExpense));
-                if (tvNet != null) tvNet.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(net));
-            }
-=======
             double netCashFlow = mIncome - mExpense;
 
             TextView tvInc = view.findViewById(R.id.tvDashMonthIncome);
             TextView tvExp = view.findViewById(R.id.tvDashMonthExpense);
             TextView tvNet = view.findViewById(R.id.tvDashMonthNet);
 
-            if (tvInc != null) tvInc.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(mIncome));
-            if (tvExp != null) tvExp.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(mExpense));
-            if (tvNet != null) tvNet.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(netCashFlow));
->>>>>>> Stashed changes
+            if (tvInc != null) tvInc.setText(FormatUtils.formatCurrency(mIncome));
+            if (tvExp != null) tvExp.setText(FormatUtils.formatCurrency(mExpense));
+            if (tvNet != null) tvNet.setText(FormatUtils.formatCurrency(netCashFlow));
         } catch (Exception ignored) {}
 
         // Today's Milk
         try {
             String today = new SimpleDateFormat("dd-MM-yyyy", Locale.US).format(new Date());
             Cursor cMilk = db.rawQuery("SELECT SUM(litres) FROM milk_production WHERE datetime = ?", new String[]{today});
-            if (cMilk.moveToFirst()) {
+            if (cMilk.moveToFirst() && tvStatMilk != null) {
                 double total = cMilk.getDouble(0);
                 tvStatMilk.setText(String.format(Locale.US, "%.1f L", total));
             }
@@ -297,7 +260,7 @@ public class DashboardFragment extends Fragment {
         // Low Stock Count
         try {
             Cursor cStock = db.rawQuery("SELECT COUNT(*) FROM inventory WHERE quantity <= min_quantity AND min_quantity > 0", null);
-            if (cStock.moveToFirst()) {
+            if (cStock.moveToFirst() && tvStatLowStock != null) {
                 tvStatLowStock.setText(String.valueOf(cStock.getInt(0)));
             }
             cStock.close();
@@ -307,20 +270,55 @@ public class DashboardFragment extends Fragment {
         try {
             AlarmScheduler.updateOverdueStatus(db);
             Cursor cVac = db.rawQuery("SELECT COUNT(*) FROM vaccinations WHERE status = 'Pending' OR status = 'Overdue'", null);
-            if (cVac.moveToFirst()) {
+            if (cVac.moveToFirst() && tvStatVaccines != null) {
                 tvStatVaccines.setText(String.valueOf(cVac.getInt(0)));
             }
             cVac.close();
         } catch (Exception ignored) {}
 
-        // Phase 1 Intelligence: Today's Farm Brief
+        // Intelligence Feed
         loadFarmBrief(db);
-
-        // Phase 1 Intelligence: What Changed Today
         loadWhatChanged(db);
-
-        // Phase 1 Intelligence: Farm Insights
         loadFarmInsights(db);
+    }
+
+    private int countSpecies(SQLiteDatabase db, String species) {
+        if (db == null || species == null) return 0;
+        int count = 0;
+        try {
+            Cursor c1 = db.rawQuery("SELECT COUNT(*) FROM animas WHERE (species LIKE ? OR species LIKE ?) AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')", new String[]{species, species + "s"});
+            if (c1.moveToFirst()) count += c1.getInt(0);
+            c1.close();
+
+            Cursor c2 = db.rawQuery("SELECT SUM(current_quantity) FROM livestock_batches WHERE species LIKE ? AND (status = 'Active' OR status IS NULL OR status = '')", new String[]{species});
+            if (c2.moveToFirst()) count += c2.getInt(0);
+            c2.close();
+        } catch (Exception ignored) {}
+        return count;
+    }
+
+    public static boolean isSameMonth(String dateStr, int targetMonth, int targetYear) {
+        if (dateStr == null || dateStr.trim().isEmpty()) return false;
+        String s = dateStr.trim();
+        // Try dd-MM-yyyy
+        if (s.matches("^\\d{1,2}-\\d{1,2}-\\d{4}.*")) {
+            String[] parts = s.split("[- ]");
+            try {
+                int month = Integer.parseInt(parts[1]) - 1; // 0-based
+                int year = Integer.parseInt(parts[2]);
+                return month == targetMonth && year == targetYear;
+            } catch (Exception ignored) {}
+        }
+        // Try yyyy-MM-dd
+        if (s.matches("^\\d{4}-\\d{1,2}-\\d{1,2}.*")) {
+            String[] parts = s.split("[- ]");
+            try {
+                int year = Integer.parseInt(parts[0]);
+                int month = Integer.parseInt(parts[1]) - 1; // 0-based
+                return month == targetMonth && year == targetYear;
+            } catch (Exception ignored) {}
+        }
+        return false;
     }
 
     private void loadFarmBrief(SQLiteDatabase db) {
@@ -392,46 +390,6 @@ public class DashboardFragment extends Fragment {
         }
     }
 
-<<<<<<< Updated upstream
-    private int countSpecies(SQLiteDatabase db, String species) {
-        if (db == null || species == null) return 0;
-        int count = 0;
-        try {
-            Cursor c1 = db.rawQuery("SELECT COUNT(*) FROM animas WHERE (species LIKE ? OR species LIKE ?) AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL)", new String[]{species, species + "s"});
-            if (c1.moveToFirst()) count += c1.getInt(0);
-            c1.close();
-
-            Cursor c2 = db.rawQuery("SELECT SUM(current_quantity) FROM livestock_batches WHERE species LIKE ? AND (status = 'Active' OR status IS NULL)", new String[]{species});
-            if (c2.moveToFirst()) count += c2.getInt(0);
-            c2.close();
-        } catch (Exception ignored) {}
-        return count;
-=======
-    public static boolean isSameMonth(String dateStr, int targetMonth, int targetYear) {
-        if (dateStr == null || dateStr.trim().isEmpty()) return false;
-        String s = dateStr.trim();
-        // Try dd-MM-yyyy
-        if (s.matches("^\\d{1,2}-\\d{1,2}-\\d{4}.*")) {
-            String[] parts = s.split("[- ]");
-            try {
-                int month = Integer.parseInt(parts[1]) - 1; // 0-based
-                int year = Integer.parseInt(parts[2]);
-                return month == targetMonth && year == targetYear;
-            } catch (Exception ignored) {}
-        }
-        // Try yyyy-MM-dd
-        if (s.matches("^\\d{4}-\\d{1,2}-\\d{1,2}.*")) {
-            String[] parts = s.split("[- ]");
-            try {
-                int year = Integer.parseInt(parts[0]);
-                int month = Integer.parseInt(parts[1]) - 1; // 0-based
-                return month == targetMonth && year == targetYear;
-            } catch (Exception ignored) {}
-        }
-        return false;
->>>>>>> Stashed changes
-    }
-
     private void loadFarmInsights(SQLiteDatabase db) {
         if (layoutInsightsContent == null || db == null) return;
         layoutInsightsContent.removeAllViews();
@@ -460,73 +418,34 @@ public class DashboardFragment extends Fragment {
             TextView badgeTv = new TextView(getActivity());
             badgeTv.setText(" " + insight.getPriority().name() + " ");
             badgeTv.setTextSize(10);
-            badgeTv.setTypeface(null, android.graphics.Typeface.BOLD);
             badgeTv.setTextColor(Color.WHITE);
 
-            int bgCol = Color.parseColor("#1565C0"); // INFO
             if (insight.getPriority() == Insight.Priority.CRITICAL) {
-                bgCol = Color.parseColor("#C62828");
+                badgeTv.setBackgroundColor(Color.parseColor("#C62828"));
             } else if (insight.getPriority() == Insight.Priority.ATTENTION) {
-                bgCol = Color.parseColor("#E65100");
-            } else if (insight.getPriority() == Insight.Priority.POSITIVE) {
-                bgCol = Color.parseColor("#2E7D32");
+                badgeTv.setBackgroundColor(Color.parseColor("#EF6C00"));
+            } else {
+                badgeTv.setBackgroundColor(Color.parseColor("#2E7D32"));
             }
-            badgeTv.setBackgroundColor(bgCol);
-            badgeTv.setPadding(8, 2, 8, 2);
+            headerLayout.addView(badgeTv);
 
             TextView titleTv = new TextView(getActivity());
-            titleTv.setText("  " + insight.getTitle());
-            titleTv.setTextSize(13);
+            titleTv.setText(" " + insight.getTitle());
+            titleTv.setTextSize(12);
             titleTv.setTypeface(null, android.graphics.Typeface.BOLD);
-            titleTv.setTextColor(Color.parseColor("#212121"));
-
-            headerLayout.addView(badgeTv);
+            titleTv.setTextColor(Color.parseColor("#1B5E20"));
             headerLayout.addView(titleTv);
+
+            itemLayout.addView(headerLayout);
 
             TextView msgTv = new TextView(getActivity());
             msgTv.setText(insight.getMessage());
-            msgTv.setTextSize(12);
+            msgTv.setTextSize(11);
             msgTv.setTextColor(Color.parseColor("#424242"));
-            msgTv.setPadding(0, 4, 0, 6);
-
-            itemLayout.addView(headerLayout);
+            msgTv.setPadding(0, 2, 0, 0);
             itemLayout.addView(msgTv);
 
-            if (insight.getActionTarget() != null && !insight.getActionTarget().isEmpty()) {
-                itemLayout.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        handleInsightAction(insight.getActionTarget());
-                    }
-                });
-            }
-
             layoutInsightsContent.addView(itemLayout);
-        }
-    }
-
-    private void handleInsightAction(String target) {
-        if (getActivity() == null) return;
-        if ("VACCINATION".equalsIgnoreCase(target)) {
-            startActivity(new Intent(getActivity(), ScheduleVaccinationActivity.class));
-        } else if ("INVENTORY".equalsIgnoreCase(target)) {
-            FragmentTransaction ft = getParentFragmentManager().beginTransaction();
-            ft.addToBackStack("I");
-            ft.replace(R.id.main_frame, InventoryListFragment.newInstance(), "I");
-            ft.commit();
-        } else if ("MILK".equalsIgnoreCase(target)) {
-            startActivity(new Intent(getActivity(), MilkProductionActivity.class));
-        } else if ("BREEDING".equalsIgnoreCase(target)) {
-            FragmentTransaction ft = getParentFragmentManager().beginTransaction();
-            ft.addToBackStack("B");
-            ft.replace(R.id.main_frame, BreedingListFragment.newInstance(), "B");
-            ft.commit();
-        } else if ("HEALTH".equalsIgnoreCase(target)) {
-            startActivity(new Intent(getActivity(), MedicationActivity.class));
-        } else if ("FINANCIAL".equalsIgnoreCase(target)) {
-            startActivity(new Intent(getActivity(), IncomeActivity.class));
-        } else if ("REGISTER".equalsIgnoreCase(target)) {
-            startActivity(new Intent(getActivity(), RegisterActivity.class));
         }
     }
 
@@ -547,20 +466,5 @@ public class DashboardFragment extends Fragment {
         tv.setTextColor(Color.parseColor(colorHex));
         tv.setPadding(0, 1, 0, 3);
         container.addView(tv);
-    }
-
-    private int countSpecies(SQLiteDatabase db, String species) {
-        if (db == null || species == null) return 0;
-        int count = 0;
-        try {
-            Cursor c1 = db.rawQuery("SELECT COUNT(*) FROM animas WHERE (species LIKE ? OR species LIKE ?) AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')", new String[]{species, species + "s"});
-            if (c1.moveToFirst()) count += c1.getInt(0);
-            c1.close();
-
-            Cursor c2 = db.rawQuery("SELECT SUM(current_quantity) FROM livestock_batches WHERE species LIKE ? AND (status = 'Active' OR status IS NULL OR status = '')", new String[]{species});
-            if (c2.moveToFirst()) count += c2.getInt(0);
-            c2.close();
-        } catch (Exception ignored) {}
-        return count;
     }
 }
