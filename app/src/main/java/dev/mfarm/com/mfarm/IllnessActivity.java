@@ -21,12 +21,17 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import com.google.android.material.textfield.TextInputEditText;
+
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Locale;
 
 public class IllnessActivity extends AppCompatActivity {
     Spinner spinneranimal, spinnerdisease;
+    View layoutCustomDisease;
+    TextInputEditText etCustomDisease;
     private ArrayAdapter<String> adapterForSpinner;
     String animalName = "";
 
@@ -36,6 +41,7 @@ public class IllnessActivity extends AppCompatActivity {
     String disease = "";
     String dateOccured = "";
     String preSelectedType = "";
+    private Calendar calendar = Calendar.getInstance();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +58,8 @@ public class IllnessActivity extends AppCompatActivity {
 
         spinneranimal = findViewById(R.id.spinner);
         spinnerdisease = findViewById(R.id.spinnerdisease);
+        layoutCustomDisease = findViewById(R.id.layoutCustomDisease);
+        etCustomDisease = findViewById(R.id.etCustomDisease);
         edtsymptoms = findViewById(R.id.edtsymptoms);
         btnSave = findViewById(R.id.btnSave);
         btndate = findViewById(R.id.btndate);
@@ -60,25 +68,36 @@ public class IllnessActivity extends AppCompatActivity {
             preSelectedType = getIntent().getStringExtra("type");
         }
 
+        updateDateButton();
+
         btndate.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Calendar calendar = Calendar.getInstance();
-                new DatePickerDialog(IllnessActivity.this, new DatePickerDialog.OnDateSetListener() {
+                DatePickerDialog dpd = new DatePickerDialog(IllnessActivity.this, R.style.GreenDatePickerTheme, new DatePickerDialog.OnDateSetListener() {
                     @Override
                     public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
-                        dateOccured = dayOfMonth + "-" + (month + 1) + "-" + year;
-                        btndate.setText(dateOccured);
+                        calendar.set(Calendar.YEAR, year);
+                        calendar.set(Calendar.MONTH, month);
+                        calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+                        updateDateButton();
                     }
-                }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show();
+                }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
+
+                dpd.getDatePicker().setMaxDate(System.currentTimeMillis());
+                dpd.show();
             }
         });
         loadAnimalData();
         loadDiseasesData();
+
         spinneranimal.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                animalName = ((TextView) view).getText().toString();
+                if (view != null && view instanceof TextView) {
+                    animalName = ((TextView) view).getText().toString();
+                } else {
+                    animalName = parent.getItemAtPosition(position).toString();
+                }
                 android.database.sqlite.SQLiteDatabase db = getDb();
                 if (db != null) {
                     Cursor cursor = db.rawQuery("SELECT id,name FROM animas where name = ?", new String[]{animalName});
@@ -96,7 +115,14 @@ public class IllnessActivity extends AppCompatActivity {
         spinnerdisease.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                disease = ((TextView) view).getText().toString();
+                disease = parent.getItemAtPosition(position).toString();
+                if (layoutCustomDisease != null) {
+                    if (disease.contains("Other")) {
+                        layoutCustomDisease.setVisibility(View.VISIBLE);
+                    } else {
+                        layoutCustomDisease.setVisibility(View.GONE);
+                    }
+                }
             }
 
             @Override
@@ -106,44 +132,60 @@ public class IllnessActivity extends AppCompatActivity {
         btnSave.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (edtsymptoms.getText().toString().equalsIgnoreCase("")) {
-                    Toast.makeText(getApplicationContext(), "Please Enter description", Toast.LENGTH_LONG).show();
-                } else if (animal_id == 0) {
-                    Toast.makeText(getApplicationContext(), "Please Select Animal", Toast.LENGTH_LONG).show();
-                } else {
-                    if (dateOccured.isEmpty() || dateOccured.equalsIgnoreCase("Select Date Occurred")) {
-                        DateFormat df = new SimpleDateFormat("dd-MM-yyyy");
-                        dateOccured = df.format(Calendar.getInstance().getTime());
-                    }
-
-                    ContentValues collect = new ContentValues();
-                    collect.put("animal_id", animal_id);
-                    collect.put("animal_name", animalName);
-                    collect.put("sings_noted", edtsymptoms.getText().toString());
-                    collect.put("illness_occured", disease);
-                    collect.put("treatment", "");
-                    collect.put("date_occured", dateOccured);
-                    collect.put("diagnosis", "");
-                    collect.put("medicine", "");
-                    collect.put("treatment_date", "");
-                    collect.put("others", "");
-
-                    try {
-                        android.database.sqlite.SQLiteDatabase db = getDb();
-                        if (db != null) {
-                            db.insert("illness", null, collect);
-                        }
-                        Toast.makeText(getApplicationContext(), "Saved Successfully", Toast.LENGTH_LONG).show();
-
-                        Intent pp = new Intent(getApplicationContext(), TreatmentActivity.class);
-                        startActivity(pp);
-                        finish();
-                    } catch (Exception e) {
-                        Toast.makeText(getApplicationContext(), "Error saving: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    }
-                }
+                saveIllnessRecord();
             }
         });
+    }
+
+    private void updateDateButton() {
+        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy", Locale.US);
+        dateOccured = sdf.format(calendar.getTime());
+        btndate.setText("📅 Date: " + dateOccured);
+    }
+
+    private void saveIllnessRecord() {
+        if (disease.contains("Other") && etCustomDisease != null && !etCustomDisease.getText().toString().trim().isEmpty()) {
+            disease = etCustomDisease.getText().toString().trim();
+        } else if (disease.contains("Other")) {
+            Toast.makeText(getApplicationContext(), "Please specify custom disease name", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        if (edtsymptoms.getText().toString().trim().equalsIgnoreCase("")) {
+            Toast.makeText(getApplicationContext(), "Please Enter symptoms observed", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        if (animal_id == 0) {
+            Toast.makeText(getApplicationContext(), "Please Select Animal", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        ContentValues collect = new ContentValues();
+        collect.put("animal_id", animal_id);
+        collect.put("animal_name", animalName);
+        collect.put("sings_noted", edtsymptoms.getText().toString().trim());
+        collect.put("illness_occured", disease);
+        collect.put("treatment", "");
+        collect.put("date_occured", dateOccured);
+        collect.put("diagnosis", "");
+        collect.put("medicine", "");
+        collect.put("treatment_date", "");
+        collect.put("others", "");
+
+        try {
+            android.database.sqlite.SQLiteDatabase db = getDb();
+            if (db != null) {
+                db.insert("illness", null, collect);
+            }
+            Toast.makeText(getApplicationContext(), "Illness Record Saved Successfully", Toast.LENGTH_LONG).show();
+
+            Intent pp = new Intent(getApplicationContext(), TreatmentActivity.class);
+            startActivity(pp);
+            finish();
+        } catch (Exception e) {
+            Toast.makeText(getApplicationContext(), "Error saving: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private android.database.sqlite.SQLiteDatabase getDb() {
@@ -157,7 +199,7 @@ public class IllnessActivity extends AppCompatActivity {
             android.database.sqlite.SQLiteDatabase db = getDb();
             if (db == null) return;
 
-            Cursor cursor = db.rawQuery("SELECT id,name FROM animas", null);
+            Cursor cursor = db.rawQuery("SELECT id,name FROM animas WHERE lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = ''", null);
             if (cursor != null && cursor.moveToFirst()) {
                 do {
                     adapterForSpinner.add(cursor.getString(1));
@@ -197,6 +239,8 @@ public class IllnessActivity extends AppCompatActivity {
                 } while (cursor.moveToNext());
             }
             if (cursor != null) cursor.close();
+
+            adapterForSpinner.add("Other Disease (Specify)...");
             spinnerdisease.setAdapter(adapterForSpinner);
             if (preSelectIndex != -1) {
                 spinnerdisease.setSelection(preSelectIndex);
