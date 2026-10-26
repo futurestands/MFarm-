@@ -166,33 +166,36 @@ public class ExpenseActivity extends AppCompatActivity {
             return;
         }
 
-        boolean success = false;
+        boolean transactionCommitted = false;
         String errorMessage = null;
 
-        db.beginTransaction();
         try {
-            DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
-            CategoryManager.CategoryResult catRes = CategoryManager.addCategory(adapterDb, "expense_categories", "category_name", category);
-            if (catRes == CategoryManager.CategoryResult.FAILED && CategoryManager.OTHER_SENTINEL.equals(spinnerCategory.getSelectedItem().toString())) {
-                throw new RuntimeException("Failed to persist custom expense category");
+            db.beginTransaction();
+            try {
+                DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
+                CategoryManager.CategoryResult catRes = CategoryManager.addCategory(adapterDb, "expense_categories", "category_name", category);
+                if (catRes == CategoryManager.CategoryResult.FAILED && CategoryManager.OTHER_SENTINEL.equals(spinnerCategory.getSelectedItem().toString())) {
+                    throw new RuntimeException("Failed to persist custom expense category");
+                }
+
+                long rowId = db.insert("expenses", null, values);
+                if (rowId == -1) {
+                    throw new RuntimeException("Database insertion failed for expense record");
+                }
+
+                DatabaseHelper.logAudit(db, "RECORD_EXPENSE", "FINANCIAL", rowId, "Expense: " + category + " - " + amount);
+
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
             }
-
-            long rowId = db.insert("expenses", null, values);
-            if (rowId == -1) {
-                throw new RuntimeException("Database insertion failed for expense record");
-            }
-
-            DatabaseHelper.logAudit(db, "RECORD_EXPENSE", "FINANCIAL", rowId, "Expense: " + category + " - " + amount);
-
-            db.setTransactionSuccessful();
-            success = true;
+            transactionCommitted = true;
         } catch (Exception e) {
             errorMessage = e.getMessage();
-        } finally {
-            db.endTransaction();
+            transactionCommitted = false;
         }
 
-        if (success) {
+        if (transactionCommitted) {
             Toast.makeText(this, "Expense Saved Successfully", Toast.LENGTH_LONG).show();
             finish();
         } else {

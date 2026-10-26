@@ -194,11 +194,53 @@ public class DashboardCalculationTest {
     @Test
     public void testDuplicateAnimalSaleRejection() throws Exception {
         Statement stmt = conn.createStatement();
-        stmt.execute("INSERT INTO animas (id, name, species, lifecycle_status) VALUES (1, 'Cow Daisy', 'Cattle', 'Sold')");
 
-        // Attempting a conditional update on an animal already marked 'Sold' MUST affect 0 rows
-        int updatedRows = stmt.executeUpdate("UPDATE animas SET lifecycle_status = 'Sold' WHERE id = 1 AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')");
-        assertEquals(0, updatedRows);
+        // 1. Create active animal
+        stmt.execute("INSERT INTO animas (id, name, species, lifecycle_status) VALUES (1, 'Cow Daisy', 'Cattle', 'Active')");
+
+        // 2. Transaction 1: Successful First Sale
+        conn.setAutoCommit(false);
+        stmt.executeUpdate("INSERT INTO income (id, category, amount, related_animal_id) VALUES (101, 'Animal Sales', 1500000, 1)");
+        int updatedRows1 = stmt.executeUpdate("UPDATE animas SET lifecycle_status = 'Sold' WHERE id = 1 AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')");
+        assertEquals(1, updatedRows1);
+        stmt.executeUpdate("INSERT INTO audit_logs (action, module, entity_id, details) VALUES ('RECORD_INCOME', 'FINANCIAL', 101, 'Sold Daisy')");
+        conn.commit();
+
+        // Verify First Sale State
+        ResultSet rs1 = stmt.executeQuery("SELECT lifecycle_status FROM animas WHERE id = 1");
+        assertTrue(rs1.next());
+        assertEquals("Sold", rs1.getString(1));
+        rs1.close();
+
+        ResultSet rsInc1 = stmt.executeQuery("SELECT COUNT(*) FROM income WHERE related_animal_id = 1");
+        assertTrue(rsInc1.next());
+        assertEquals(1, rsInc1.getInt(1));
+        rsInc1.close();
+
+        // 3. Transaction 2: Duplicate Sale Attempt (MUST FAIL AND ROLLBACK)
+        conn.setAutoCommit(false);
+        stmt.executeUpdate("INSERT INTO income (id, category, amount, related_animal_id) VALUES (102, 'Animal Sales', 1500000, 1)");
+        int updatedRows2 = stmt.executeUpdate("UPDATE animas SET lifecycle_status = 'Sold' WHERE id = 1 AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')");
+        
+        if (updatedRows2 == 0) {
+            // Expected failure: Rollback Transaction 2!
+            conn.rollback();
+        } else {
+            conn.commit();
+            org.junit.Assert.fail("Duplicate sale on already sold animal must be rejected!");
+        }
+        conn.setAutoCommit(true);
+
+        // 4. Verify Final State: No duplicate income or audit logs were created
+        ResultSet rsIncFinal = stmt.executeQuery("SELECT COUNT(*) FROM income WHERE related_animal_id = 1");
+        assertTrue(rsIncFinal.next());
+        assertEquals("Income count must remain exactly 1 after duplicate sale rollback", 1, rsIncFinal.getInt(1));
+        rsIncFinal.close();
+
+        ResultSet rsAuditFinal = stmt.executeQuery("SELECT COUNT(*) FROM audit_logs WHERE module = 'FINANCIAL'");
+        assertTrue(rsAuditFinal.next());
+        assertEquals("Audit count must remain exactly 1 after duplicate sale rollback", 1, rsAuditFinal.getInt(1));
+        rsAuditFinal.close();
 
         stmt.close();
     }

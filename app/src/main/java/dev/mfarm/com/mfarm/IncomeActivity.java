@@ -207,54 +207,57 @@ public class IncomeActivity extends AppCompatActivity {
             return;
         }
 
-        boolean success = false;
+        boolean transactionCommitted = false;
         String errorMessage = null;
 
-        db.beginTransaction();
         try {
-            DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
-            CategoryManager.CategoryResult catRes = CategoryManager.addCategory(adapterDb, "income_categories", "category_name", category);
-            if (catRes == CategoryManager.CategoryResult.FAILED && CategoryManager.OTHER_SENTINEL.equals(spinnerCategory.getSelectedItem().toString())) {
-                throw new RuntimeException("Failed to persist custom income category");
-            }
-
-            ContentValues values = new ContentValues();
-            values.put("category", category);
-            values.put("amount", amount);
-            values.put("buyer", buyer);
-            values.put("date", date);
-            values.put("description", description);
-            if (relatedAnimalId != -1) {
-                values.put("related_animal_id", relatedAnimalId);
-            }
-
-            long rowId = db.insert("income", null, values);
-            if (rowId == -1) {
-                throw new RuntimeException("Database insertion failed for income record");
-            }
-
-            if ("Animal Sales".equalsIgnoreCase(category) && relatedAnimalId != -1) {
-                ContentValues statusValues = new ContentValues();
-                statusValues.put("lifecycle_status", "Sold");
-                int updatedRows = db.update("animas", statusValues,
-                        "id=? AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')",
-                        new String[]{String.valueOf(relatedAnimalId)});
-                if (updatedRows != 1) {
-                    throw new IllegalStateException("Animal ID " + relatedAnimalId + " is no longer active or has already been sold");
+            db.beginTransaction();
+            try {
+                DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
+                CategoryManager.CategoryResult catRes = CategoryManager.addCategory(adapterDb, "income_categories", "category_name", category);
+                if (catRes == CategoryManager.CategoryResult.FAILED && CategoryManager.OTHER_SENTINEL.equals(spinnerCategory.getSelectedItem().toString())) {
+                    throw new RuntimeException("Failed to persist custom income category");
                 }
+
+                ContentValues values = new ContentValues();
+                values.put("category", category);
+                values.put("amount", amount);
+                values.put("buyer", buyer);
+                values.put("date", date);
+                values.put("description", description);
+                if (relatedAnimalId != -1) {
+                    values.put("related_animal_id", relatedAnimalId);
+                }
+
+                long rowId = db.insert("income", null, values);
+                if (rowId == -1) {
+                    throw new RuntimeException("Database insertion failed for income record");
+                }
+
+                if ("Animal Sales".equalsIgnoreCase(category) && relatedAnimalId != -1) {
+                    ContentValues statusValues = new ContentValues();
+                    statusValues.put("lifecycle_status", "Sold");
+                    int updatedRows = db.update("animas", statusValues,
+                            "id=? AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')",
+                            new String[]{String.valueOf(relatedAnimalId)});
+                    if (updatedRows != 1) {
+                        throw new IllegalStateException("Animal ID " + relatedAnimalId + " is no longer active or has already been sold");
+                    }
+                }
+
+                DatabaseHelper.logAudit(db, "RECORD_INCOME", "FINANCIAL", rowId, "Income: " + category + " - " + amount);
+
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
             }
-
-            DatabaseHelper.logAudit(db, "RECORD_INCOME", "FINANCIAL", rowId, "Income: " + category + " - " + amount);
-
-            db.setTransactionSuccessful();
-            success = true;
+            transactionCommitted = true;
         } catch (Exception e) {
             errorMessage = e.getMessage();
-        } finally {
-            db.endTransaction();
+            transactionCommitted = false;
         }
 
-        if (success) {
+        if (transactionCommitted) {
             Toast.makeText(this, "Income Record Saved Successfully", Toast.LENGTH_SHORT).show();
             finish();
         } else {
