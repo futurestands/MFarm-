@@ -244,4 +244,84 @@ public class DashboardCalculationTest {
 
         stmt.close();
     }
+
+    @Test
+    public void testLegacyAnimalNullAndEmptyStatusSaleAndRejection() throws Exception {
+        Statement stmt = conn.createStatement();
+
+        // Legacy animal 2 with NULL lifecycle_status
+        stmt.execute("INSERT INTO animas (id, name, species, lifecycle_status) VALUES (2, 'Legacy Cow Null', 'Cattle', NULL)");
+        // Legacy animal 3 with empty lifecycle_status ''
+        stmt.execute("INSERT INTO animas (id, name, species, lifecycle_status) VALUES (3, 'Legacy Goat Empty', 'Goat', '')");
+
+        // First Sale on Legacy Animal 2 (NULL status)
+        conn.setAutoCommit(false);
+        stmt.executeUpdate("INSERT INTO income (id, category, amount, related_animal_id) VALUES (201, 'Animal Sales', 1200000, 2)");
+        int upd2 = stmt.executeUpdate("UPDATE animas SET lifecycle_status = 'Sold' WHERE id = 2 AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')");
+        assertEquals(1, upd2);
+        conn.commit();
+
+        // First Sale on Legacy Animal 3 (Empty '' status)
+        conn.setAutoCommit(false);
+        stmt.executeUpdate("INSERT INTO income (id, category, amount, related_animal_id) VALUES (202, 'Animal Sales', 350000, 3)");
+        int upd3 = stmt.executeUpdate("UPDATE animas SET lifecycle_status = 'Sold' WHERE id = 3 AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')");
+        assertEquals(1, upd3);
+        conn.commit();
+
+        // Attempt Second Sale on Legacy Animal 2 (Now marked Sold)
+        conn.setAutoCommit(false);
+        stmt.executeUpdate("INSERT INTO income (id, category, amount, related_animal_id) VALUES (203, 'Animal Sales', 1200000, 2)");
+        int upd2Second = stmt.executeUpdate("UPDATE animas SET lifecycle_status = 'Sold' WHERE id = 2 AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')");
+        if (upd2Second == 0) {
+            conn.rollback(); // Transaction rolled back on duplicate sale attempt
+        } else {
+            conn.commit();
+            org.junit.Assert.fail("Second sale on legacy animal must be rejected!");
+        }
+        conn.setAutoCommit(true);
+
+        // Verify count of income for legacy animal 2 remains 1
+        ResultSet rsInc2 = stmt.executeQuery("SELECT COUNT(*) FROM income WHERE related_animal_id = 2");
+        assertTrue(rsInc2.next());
+        assertEquals(1, rsInc2.getInt(1));
+        rsInc2.close();
+
+        stmt.close();
+    }
+
+    @Test
+    public void testAuditFailureRollsBackTransaction() throws Exception {
+        Statement stmt = conn.createStatement();
+        stmt.execute("INSERT INTO animas (id, name, species, lifecycle_status) VALUES (5, 'Moo Five', 'Cattle', 'Active')");
+
+        conn.setAutoCommit(false);
+        boolean auditFailed = false;
+        try {
+            stmt.executeUpdate("INSERT INTO income (id, category, amount, related_animal_id) VALUES (501, 'Animal Sales', 2000000, 5)");
+            stmt.executeUpdate("UPDATE animas SET lifecycle_status = 'Sold' WHERE id = 5 AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')");
+
+            // Simulate audit log failure by attempting to insert into non-existent audit table
+            stmt.executeUpdate("INSERT INTO audit_logs_non_existent VALUES (1)"); 
+            conn.commit();
+        } catch (Exception e) {
+            auditFailed = true;
+            conn.rollback(); // Transaction aborted on audit log failure!
+        }
+        conn.setAutoCommit(true);
+
+        assertTrue("Audit log failure should throw exception and abort transaction", auditFailed);
+
+        // Verify Animal 5 is STILL Active and NO income row exists
+        ResultSet rsStatus = stmt.executeQuery("SELECT lifecycle_status FROM animas WHERE id = 5");
+        assertTrue(rsStatus.next());
+        assertEquals("Active", rsStatus.getString(1));
+        rsStatus.close();
+
+        ResultSet rsInc = stmt.executeQuery("SELECT COUNT(*) FROM income WHERE id = 501");
+        assertTrue(rsInc.next());
+        assertEquals(0, rsInc.getInt(1));
+        rsInc.close();
+
+        stmt.close();
+    }
 }
