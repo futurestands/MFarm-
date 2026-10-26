@@ -213,36 +213,42 @@ public class CropManagementActivity extends AppCompatActivity {
 
     private String resolveEnterpriseCode(String cropType) {
         if (cropType == null || cropType.trim().isEmpty()) return "GEN";
-        String upper = cropType.trim().toUpperCase();
+        String clean = cropType.trim();
+        String upper = clean.toUpperCase();
         if (upper.contains("COFFEE") || upper.contains("CF3")) return "CF3";
         if (upper.contains("MAIZE") || upper.contains("MZ6")) return "MZ6";
         if (upper.contains("BEAN") || upper.contains("BN7")) return "BN7";
         if (upper.contains("GROUNDNUT") || upper.contains("PEANUT") || upper.contains("GN8")) return "GN8";
 
-        // For custom crops, generate or retrieve a unique enterprise code like CP_BANANA
-        String cleanName = cropType.trim().replaceAll("[^a-zA-Z0-9]", "_").toUpperCase();
-        if (cleanName.length() > 10) cleanName = cleanName.substring(0, 10);
-        String customCode = "CP_" + cleanName;
-
+        // Query by exact enterprise name first to prevent truncation collision
+        String entName = clean + " Enterprise";
         try {
             android.database.sqlite.SQLiteDatabase db = DatabaseHelper.getDatabase(this);
             if (db != null) {
-                Cursor c = db.rawQuery("SELECT code FROM enterprises WHERE code = ?", new String[]{customCode});
+                Cursor c = db.rawQuery("SELECT code FROM enterprises WHERE LOWER(name) = LOWER(?)", new String[]{entName});
                 if (c != null && c.moveToFirst()) {
+                    String existingCode = c.getString(0);
                     c.close();
-                } else {
-                    if (c != null) c.close();
-                    ContentValues cv = new ContentValues();
-                    cv.put("code", customCode);
-                    cv.put("name", cropType.trim() + " Enterprise");
-                    cv.put("category", "Crop");
-                    cv.put("description", "Auto-generated enterprise for " + cropType.trim());
-                    db.insert("enterprises", null, cv);
+                    return existingCode;
                 }
+                if (c != null) c.close();
+
+                // Generate a unique non-colliding code using hash
+                String sanitized = clean.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+                int hashCode = Math.abs(clean.toLowerCase().hashCode()) % 10000;
+                String customCode = "CP_" + (sanitized.length() > 6 ? sanitized.substring(0, 6) : sanitized) + "_" + hashCode;
+
+                ContentValues cv = new ContentValues();
+                cv.put("code", customCode);
+                cv.put("name", entName);
+                cv.put("category", "Crop");
+                cv.put("description", "Auto-generated enterprise for " + clean);
+                db.insert("enterprises", null, cv);
+                return customCode;
             }
         } catch (Exception ignored) {}
 
-        return customCode;
+        return "GEN";
     }
 
     @Override

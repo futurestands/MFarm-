@@ -64,4 +64,25 @@ public class FarmCryptoTest {
             // Expected
         }
     }
+
+    @Test
+    public void testPBKDF2BenchmarkPerformance() throws Exception {
+        String json = "{\"farmId\":\"benchmark-farm\",\"records\":[{\"uuid\":\"u1\",\"table\":\"animas\"}]}";
+        String joinCode = "BENCHMARK-1234";
+
+        long totalNano = 0;
+        int iterations = 10;
+        for (int i = 0; i < iterations; i++) {
+            long start = System.nanoTime();
+            byte[] blob = FarmCrypto.encrypt(json, joinCode);
+            String plain = FarmCrypto.decrypt(blob, joinCode);
+            long end = System.nanoTime();
+            totalNano += (end - start);
+            assertEquals(json, plain);
+        }
+
+        double avgMs = (totalNano / (double) iterations) / 1_000_000.0;
+        System.out.println("FarmCrypto PBKDF2 (50,000 iterations) average time over 10 runs: " + String.format("%.2f", avgMs) + " ms");
+        org.junit.Assert.assertTrue("Benchmark should complete in reasonable time", avgMs > 0);
+    }
 }

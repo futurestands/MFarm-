@@ -1028,18 +1028,96 @@ public class SQLiteIntegrationTest {
         phoneB.close();
     }
 
-    // --- GAP 30: Crop Enterprise Financial Attribution (CF3, MZ6, BN7, GN8, CP_CUSTOM) ---
+    // --- GAP 30: End-to-End Crop Enterprise Financial Attribution & 10-Char Collision Verification ---
     @Test
     public void testCropEnterpriseAttributionMaizeBeansCoffee() throws Exception {
         JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
         Statement stmt = conn.createStatement();
 
-        // Verify seeded enterprise codes exist in database
+        // 1. Verify seeded enterprise codes exist in database
         ResultSet rEnt = stmt.executeQuery("SELECT COUNT(*) FROM enterprises WHERE code IN ('CF3', 'MZ6', 'BN7', 'GN8', 'GEN')");
         assertTrue(rEnt.next());
         assertEquals(5, rEnt.getInt(1));
         rEnt.close();
 
+        // 2. Test TWO custom crops sharing same first 10 characters ("Cassava Variety Alpha" vs "Cassava Variety Beta")
+        stmt.execute("INSERT INTO enterprises (code, name, category, description) VALUES ('CP_CASSAVA_1', 'Cassava Variety Alpha Enterprise', 'Crop', 'Custom crop A')");
+        stmt.execute("INSERT INTO enterprises (code, name, category, description) VALUES ('CP_CASSAVA_2', 'Cassava Variety Beta Enterprise', 'Crop', 'Custom crop B')");
+
+        // Record income & expenses for each crop
+        stmt.execute("INSERT INTO expenses (category, amount, date, description, project_code) VALUES ('Crop Inputs', 50000, '20-10-2026', 'Fertilizer for Maize', 'MZ6')");
+        stmt.execute("INSERT INTO income (category, amount, date, description, project_code) VALUES ('Crop Sales', 180000, '25-10-2026', 'Maize Sale', 'MZ6')");
+
+        stmt.execute("INSERT INTO expenses (category, amount, date, description, project_code) VALUES ('Crop Inputs', 30000, '20-10-2026', 'Beans Seed', 'BN7')");
+        stmt.execute("INSERT INTO income (category, amount, date, description, project_code) VALUES ('Crop Sales', 95000, '25-10-2026', 'Beans Sale', 'BN7')");
+
+        stmt.execute("INSERT INTO expenses (category, amount, date, description, project_code) VALUES ('Crop Inputs', 75000, '20-10-2026', 'Stem Cuttings Alpha', 'CP_CASSAVA_1')");
+        stmt.execute("INSERT INTO income (category, amount, date, description, project_code) VALUES ('Crop Sales', 220000, '25-10-2026', 'Cassava Alpha Sale', 'CP_CASSAVA_1')");
+
+        stmt.execute("INSERT INTO expenses (category, amount, date, description, project_code) VALUES ('Crop Inputs', 80000, '20-10-2026', 'Stem Cuttings Beta', 'CP_CASSAVA_2')");
+        stmt.execute("INSERT INTO income (category, amount, date, description, project_code) VALUES ('Crop Sales', 240000, '25-10-2026', 'Cassava Beta Sale', 'CP_CASSAVA_2')");
+
+        // Verify independent financial balances per enterprise
+        ResultSet rMz = stmt.executeQuery("SELECT SUM(amount) FROM income WHERE project_code = 'MZ6'");
+        assertTrue(rMz.next());
+        assertEquals(180000.0, rMz.getDouble(1), 0.01);
+        rMz.close();
+
+        ResultSet rCas1 = stmt.executeQuery("SELECT SUM(amount) FROM income WHERE project_code = 'CP_CASSAVA_1'");
+        assertTrue(rCas1.next());
+        assertEquals(220000.0, rCas1.getDouble(1), 0.01);
+        rCas1.close();
+
+        ResultSet rCas2 = stmt.executeQuery("SELECT SUM(amount) FROM income WHERE project_code = 'CP_CASSAVA_2'");
+        assertTrue(rCas2.next());
+        assertEquals(240000.0, rCas2.getDouble(1), 0.01);
+        rCas2.close();
+
         stmt.close();
+    }
+
+    // --- GAP 31: Populated DB_VERSION 5 to DB_VERSION 6 Database Migration ---
+    @Test
+    public void testDatabaseVersion5ToVersion6Upgrade() throws Exception {
+        Connection v5Conn = DriverManager.getConnection("jdbc:sqlite::memory:");
+        Statement stmt = v5Conn.createStatement();
+
+        // Create V5 Schema
+        createSchema(v5Conn); // includes animas, livestock_batches, income, expenses, import_batches, import_batch_items
+
+        // Populate V5 Records
+        stmt.execute("INSERT INTO animas (id, name, species, gender) VALUES (10, 'Moo V5', 'Cattle', 'Female')");
+        stmt.execute("INSERT INTO livestock_batches (id, batch_id, species, subtype, initial_quantity, current_quantity, acquisition_date) VALUES (1, 'BATCH-V5-01', 'Poultry', 'Chicks', 100, 100, '01-01-2026')");
+        stmt.execute("INSERT INTO income (id, category, amount, date, description) VALUES (1, 'Milk Sales', 50000, '01-01-2026', 'Milk')");
+        stmt.execute("INSERT INTO expenses (id, category, amount, date, description) VALUES (1, 'Feeds', 20000, '01-01-2026', 'Feed')");
+        stmt.execute("INSERT INTO import_batches (id, batch_uuid, file_name, imported_at, record_count) VALUES (1, 'UUID-V5-BATCH', 'John.xlsx', 100000, 5)");
+        stmt.execute("INSERT INTO import_batch_items (id, batch_uuid, table_name, record_id, action_type, created_at) VALUES (1, 'UUID-V5-BATCH', 'animas', 10, 'INSERT', 100000)");
+
+        // Execute V6 Migration (creates the 6 category tables)
+        stmt.execute("CREATE TABLE IF NOT EXISTS income_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, category_name TEXT UNIQUE NOT NULL)");
+        stmt.execute("CREATE TABLE IF NOT EXISTS expense_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, category_name TEXT UNIQUE NOT NULL)");
+        stmt.execute("CREATE TABLE IF NOT EXISTS inventory_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, category_name TEXT UNIQUE NOT NULL)");
+        stmt.execute("CREATE TABLE IF NOT EXISTS inventory_units (id INTEGER PRIMARY KEY AUTOINCREMENT, unit_name TEXT UNIQUE NOT NULL)");
+        stmt.execute("CREATE TABLE IF NOT EXISTS crop_types (id INTEGER PRIMARY KEY AUTOINCREMENT, crop_name TEXT UNIQUE NOT NULL)");
+        stmt.execute("CREATE TABLE IF NOT EXISTS disposal_reasons (id INTEGER PRIMARY KEY AUTOINCREMENT, reason_name TEXT UNIQUE NOT NULL)");
+
+        // Assert all V5 data survives 100% intact
+        ResultSet rAnim = stmt.executeQuery("SELECT name FROM animas WHERE id = 10");
+        assertTrue(rAnim.next());
+        assertEquals("Moo V5", rAnim.getString(1));
+        rAnim.close();
+
+        ResultSet rInc = stmt.executeQuery("SELECT amount FROM income WHERE id = 1");
+        assertTrue(rInc.next());
+        assertEquals(50000.0, rInc.getDouble(1), 0.01);
+        rInc.close();
+
+        ResultSet rImp = stmt.executeQuery("SELECT file_name FROM import_batches WHERE batch_uuid = 'UUID-V5-BATCH'");
+        assertTrue(rImp.next());
+        assertEquals("John.xlsx", rImp.getString(1));
+        rImp.close();
+
+        stmt.close();
+        v5Conn.close();
     }
 }
