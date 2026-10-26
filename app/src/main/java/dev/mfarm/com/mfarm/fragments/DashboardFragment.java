@@ -77,7 +77,7 @@ public class DashboardFragment extends Fragment {
         layoutWhatChangedContent = view.findViewById(R.id.layoutWhatChangedContent);
         layoutInsightsContent = view.findViewById(R.id.layoutInsightsContent);
 
-        loadDashboardStats();
+        loadDashboardStats(view);
 
         Button imgregister = view.findViewById(R.id.imgregister);
         imgregister.setOnClickListener(new View.OnClickListener() {
@@ -131,20 +131,37 @@ public class DashboardFragment extends Fragment {
         });
 
         Button imgbreeding = view.findViewById(R.id.imgbreeding);
-        imgbreeding.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                FragmentTransaction ft = getParentFragmentManager().beginTransaction();
-                ft.addToBackStack("B");
-                ft.replace(R.id.main_frame, BreedingListFragment.newInstance(), "B");
-                ft.commit();
-            }
-        });
+        if (imgbreeding != null) {
+            imgbreeding.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    FragmentTransaction ft = getParentFragmentManager().beginTransaction();
+                    ft.addToBackStack("B");
+                    ft.replace(R.id.main_frame, BreedingListFragment.newInstance(), "B");
+                    ft.commit();
+                }
+            });
+        }
 
+        loadDashboardStats(view);
         return view;
     }
 
-    private void loadDashboardStats() {
+    @Override
+    public void onResume() {
+        super.onResume();
+        View view = getView();
+        if (view != null) {
+            TextView banner = view.findViewById(R.id.tvFarmSyncBanner);
+            if (banner != null && getActivity() != null) {
+                banner.setText(FarmSyncManager.bannerText(getActivity()));
+            }
+            loadDashboardStats(view);
+        }
+    }
+
+    private void loadDashboardStats(View view) {
+        if (view == null) return;
         SQLiteDatabase db = DatabaseHelper.getDatabase(getContext());
         if (db == null || !db.isOpen()) return;
 
@@ -163,13 +180,13 @@ public class DashboardFragment extends Fragment {
         try {
             int indivCount = 0;
             int batchCount = 0;
-            Cursor cAnimals = db.rawQuery("SELECT COUNT(*) FROM animas WHERE lifecycle_status = 'Active' OR lifecycle_status IS NULL", null);
+            Cursor cAnimals = db.rawQuery("SELECT COUNT(*) FROM animas WHERE lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = ''", null);
             if (cAnimals.moveToFirst()) {
                 indivCount = cAnimals.getInt(0);
             }
             cAnimals.close();
 
-            Cursor cBatches = db.rawQuery("SELECT SUM(current_quantity) FROM livestock_batches WHERE status = 'Active' OR status IS NULL", null);
+            Cursor cBatches = db.rawQuery("SELECT SUM(current_quantity) FROM livestock_batches WHERE status = 'Active' OR status IS NULL OR status = ''", null);
             if (cBatches.moveToFirst()) {
                 batchCount = cBatches.getInt(0);
             }
@@ -189,7 +206,11 @@ public class DashboardFragment extends Fragment {
             int poultry = countSpecies(db, "Poultry");
             int rabbits = countSpecies(db, "Rabbit");
 
+<<<<<<< Updated upstream
             TextView tvSpecies = getView() != null ? getView().findViewById(R.id.tvDashSpeciesBreakdown) : null;
+=======
+            TextView tvSpecies = view.findViewById(R.id.tvDashSpeciesBreakdown);
+>>>>>>> Stashed changes
             if (tvSpecies != null) {
                 tvSpecies.setText(String.format(Locale.US, "Species: %d Cattle • %d Goats • %d Sheep • %d Poultry • %d Rabbits", cattle, goats, sheep, poultry, rabbits));
             }
@@ -209,7 +230,11 @@ public class DashboardFragment extends Fragment {
                 while (c1.moveToNext()) {
                     String dStr = c1.getString(0);
                     double amt = c1.getDouble(1);
+<<<<<<< Updated upstream
                     if (dev.mfarm.com.mfarm.intelligence.FarmIntelligenceEngine.isSameMonth(dStr, targetMonth, targetYear)) {
+=======
+                    if (isSameMonth(dStr, targetMonth, targetYear)) {
+>>>>>>> Stashed changes
                         mIncome += amt;
                     }
                 }
@@ -221,13 +246,18 @@ public class DashboardFragment extends Fragment {
                 while (c2.moveToNext()) {
                     String dStr = c2.getString(0);
                     double amt = c2.getDouble(1);
+<<<<<<< Updated upstream
                     if (dev.mfarm.com.mfarm.intelligence.FarmIntelligenceEngine.isSameMonth(dStr, targetMonth, targetYear)) {
+=======
+                    if (isSameMonth(dStr, targetMonth, targetYear)) {
+>>>>>>> Stashed changes
                         mExpense += amt;
                     }
                 }
                 c2.close();
             }
 
+<<<<<<< Updated upstream
             double net = mIncome - mExpense;
 
             View v = getView();
@@ -240,6 +270,17 @@ public class DashboardFragment extends Fragment {
                 if (tvExp != null) tvExp.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(mExpense));
                 if (tvNet != null) tvNet.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(net));
             }
+=======
+            double netCashFlow = mIncome - mExpense;
+
+            TextView tvInc = view.findViewById(R.id.tvDashMonthIncome);
+            TextView tvExp = view.findViewById(R.id.tvDashMonthExpense);
+            TextView tvNet = view.findViewById(R.id.tvDashMonthNet);
+
+            if (tvInc != null) tvInc.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(mIncome));
+            if (tvExp != null) tvExp.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(mExpense));
+            if (tvNet != null) tvNet.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(netCashFlow));
+>>>>>>> Stashed changes
         } catch (Exception ignored) {}
 
         // Today's Milk
@@ -255,7 +296,7 @@ public class DashboardFragment extends Fragment {
 
         // Low Stock Count
         try {
-            Cursor cStock = db.rawQuery("SELECT COUNT(*) FROM inventory WHERE quantity <= min_quantity", null);
+            Cursor cStock = db.rawQuery("SELECT COUNT(*) FROM inventory WHERE quantity <= min_quantity AND min_quantity > 0", null);
             if (cStock.moveToFirst()) {
                 tvStatLowStock.setText(String.valueOf(cStock.getInt(0)));
             }
@@ -351,6 +392,7 @@ public class DashboardFragment extends Fragment {
         }
     }
 
+<<<<<<< Updated upstream
     private int countSpecies(SQLiteDatabase db, String species) {
         if (db == null || species == null) return 0;
         int count = 0;
@@ -364,6 +406,30 @@ public class DashboardFragment extends Fragment {
             c2.close();
         } catch (Exception ignored) {}
         return count;
+=======
+    public static boolean isSameMonth(String dateStr, int targetMonth, int targetYear) {
+        if (dateStr == null || dateStr.trim().isEmpty()) return false;
+        String s = dateStr.trim();
+        // Try dd-MM-yyyy
+        if (s.matches("^\\d{1,2}-\\d{1,2}-\\d{4}.*")) {
+            String[] parts = s.split("[- ]");
+            try {
+                int month = Integer.parseInt(parts[1]) - 1; // 0-based
+                int year = Integer.parseInt(parts[2]);
+                return month == targetMonth && year == targetYear;
+            } catch (Exception ignored) {}
+        }
+        // Try yyyy-MM-dd
+        if (s.matches("^\\d{4}-\\d{1,2}-\\d{1,2}.*")) {
+            String[] parts = s.split("[- ]");
+            try {
+                int year = Integer.parseInt(parts[0]);
+                int month = Integer.parseInt(parts[1]) - 1; // 0-based
+                return month == targetMonth && year == targetYear;
+            } catch (Exception ignored) {}
+        }
+        return false;
+>>>>>>> Stashed changes
     }
 
     private void loadFarmInsights(SQLiteDatabase db) {
@@ -483,16 +549,18 @@ public class DashboardFragment extends Fragment {
         container.addView(tv);
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        View view = getView();
-        if (view != null) {
-            TextView banner = view.findViewById(R.id.tvFarmSyncBanner);
-            if (banner != null && getActivity() != null) {
-                banner.setText(FarmSyncManager.bannerText(getActivity()));
-            }
-            loadDashboardStats();
-        }
+    private int countSpecies(SQLiteDatabase db, String species) {
+        if (db == null || species == null) return 0;
+        int count = 0;
+        try {
+            Cursor c1 = db.rawQuery("SELECT COUNT(*) FROM animas WHERE (species LIKE ? OR species LIKE ?) AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')", new String[]{species, species + "s"});
+            if (c1.moveToFirst()) count += c1.getInt(0);
+            c1.close();
+
+            Cursor c2 = db.rawQuery("SELECT SUM(current_quantity) FROM livestock_batches WHERE species LIKE ? AND (status = 'Active' OR status IS NULL OR status = '')", new String[]{species});
+            if (c2.moveToFirst()) count += c2.getInt(0);
+            c2.close();
+        } catch (Exception ignored) {}
+        return count;
     }
 }
