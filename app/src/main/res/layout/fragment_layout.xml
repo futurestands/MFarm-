@@ -132,7 +132,7 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- Existing Compact Farm Summary Section -->
+            <!-- 4. Compact Farm Summary Section -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -380,114 +380,10 @@
                         </LinearLayout>
 
                     </LinearLayout>
->>>>>>> Stashed changes
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- 5. Monthly Cash Flow Summary (UGX) -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="3dp"
-                app:cardBackgroundColor="#F1F8E9">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="THIS MONTH'S CASH FLOW (UGX)"
-                        android:textColor="#2E7D32"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:layout_marginBottom="8dp" />
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:weightSum="3">
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Income"
-                                android:textColor="#558B2F"
-                                android:textSize="10sp" />
-
-                            <TextView
-                                android:id="@+id/tvDashMonthIncome"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="UGX 0"
-                                android:textColor="#2E7D32"
-                                android:textSize="13sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Expenses"
-                                android:textColor="#C62828"
-                                android:textSize="10sp" />
-
-                            <TextView
-                                android:id="@+id/tvDashMonthExpense"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="UGX 0"
-                                android:textColor="#C62828"
-                                android:textSize="13sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Net Balance"
-                                android:textColor="#1565C0"
-                                android:textSize="10sp" />
-
-                            <TextView
-                                android:id="@+id/tvDashMonthNet"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="UGX 0"
-                                android:textColor="#1565C0"
-                                android:textSize="13sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-
-                    </LinearLayout>
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- Quick Action Grid -->
+            <!-- 6. 2-Column Quick Action Grid -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -542,7 +438,7 @@
                     </androidx.cardview.widget.CardView>
                 </LinearLayout>
 
-                <!-- Row 2: HEALTH & VACCINATION -->
+                <!-- Row 2: RECORD SALE & EXPENSES -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -560,11 +456,11 @@
                         app:cardBackgroundColor="#CCFFFFFF">
 
                         <Button
-                            android:id="@+id/imgmedication"
+                            android:id="@+id/imgincome"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:drawableTop="@drawable/ic_dash_health"
-                            android:text="HEALTH"
+                            android:drawableTop="@drawable/ic_dash_expenses"
+                            android:text="RECORD SALE"
                             android:gravity="center"
                             android:paddingTop="12dp"
                             style="@style/DashboardButton" />
@@ -580,6 +476,35 @@
                         app:cardBackgroundColor="#CCFFFFFF">
 
                         <Button
+                            android:id="@+id/imgexpenses"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:drawableTop="@drawable/ic_dash_expenses"
+                            android:text="EXPENSES"
+                            android:gravity="center"
+                            android:paddingTop="12dp"
+                            style="@style/DashboardButton" />
+                    </androidx.cardview.widget.CardView>
+                </LinearLayout>
+
+                <!-- Row 3: VACCINATION & RECORD OFFTAKE -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:weightSum="2"
+                    android:layout_marginBottom="12dp">
+
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="0dp"
+                        android:layout_height="100dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        app:cardCornerRadius="10dp"
+                        app:cardElevation="2dp"
+                        app:cardBackgroundColor="#CCFFFFFF">
+
+                        <Button
                             android:id="@+id/imgvaccination"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
@@ -589,9 +514,78 @@
                             android:paddingTop="12dp"
                             style="@style/DashboardButton" />
                     </androidx.cardview.widget.CardView>
+
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="0dp"
+                        android:layout_height="100dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        app:cardCornerRadius="10dp"
+                        app:cardElevation="2dp"
+                        app:cardBackgroundColor="#CCFFFFFF">
+
+                        <Button
+                            android:id="@+id/imgdisposal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:drawableTop="@drawable/ic_dash_health"
+                            android:text="OFFTAKE/MORT"
+                            android:gravity="center"
+                            android:paddingTop="12dp"
+                            style="@style/DashboardButton" />
+                    </androidx.cardview.widget.CardView>
                 </LinearLayout>
 
-                <!-- Row 3: INVENTORY & EXPENSES -->
+                <!-- Row 4: CROP ACTIVITY & HEALTH -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:weightSum="2"
+                    android:layout_marginBottom="12dp">
+
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="0dp"
+                        android:layout_height="100dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        app:cardCornerRadius="10dp"
+                        app:cardElevation="2dp"
+                        app:cardBackgroundColor="#CCFFFFFF">
+
+                        <Button
+                            android:id="@+id/imgcrop"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:drawableTop="@drawable/ic_dash_register"
+                            android:text="CROP ACTIVITY"
+                            android:gravity="center"
+                            android:paddingTop="12dp"
+                            style="@style/DashboardButton" />
+                    </androidx.cardview.widget.CardView>
+
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="0dp"
+                        android:layout_height="100dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        app:cardCornerRadius="10dp"
+                        app:cardElevation="2dp"
+                        app:cardBackgroundColor="#CCFFFFFF">
+
+                        <Button
+                            android:id="@+id/imgmedication"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:drawableTop="@drawable/ic_dash_health"
+                            android:text="HEALTH"
+                            android:gravity="center"
+                            android:paddingTop="12dp"
+                            style="@style/DashboardButton" />
+                    </androidx.cardview.widget.CardView>
+                </LinearLayout>
+
+                <!-- Row 5: INVENTORY & BREEDING -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -629,35 +623,6 @@
                         app:cardBackgroundColor="#CCFFFFFF">
 
                         <Button
-                            android:id="@+id/imgexpenses"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:drawableTop="@drawable/ic_dash_expenses"
-                            android:text="EXPENSES"
-                            android:gravity="center"
-                            android:paddingTop="12dp"
-                            style="@style/DashboardButton" />
-                    </androidx.cardview.widget.CardView>
-                </LinearLayout>
-
-                <!-- Row 4: BREEDING & Spacer -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:weightSum="2"
-                    android:layout_marginBottom="12dp">
-
-                    <androidx.cardview.widget.CardView
-                        android:layout_width="0dp"
-                        android:layout_height="100dp"
-                        android:layout_weight="1"
-                        android:layout_marginEnd="6dp"
-                        app:cardCornerRadius="10dp"
-                        app:cardElevation="2dp"
-                        app:cardBackgroundColor="#CCFFFFFF">
-
-                        <Button
                             android:id="@+id/imgbreeding"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
@@ -667,12 +632,6 @@
                             android:paddingTop="12dp"
                             style="@style/DashboardButton" />
                     </androidx.cardview.widget.CardView>
-
-                    <View
-                        android:layout_width="0dp"
-                        android:layout_height="100dp"
-                        android:layout_weight="1"
-                        android:layout_marginStart="6dp" />
                 </LinearLayout>
 
             </LinearLayout>

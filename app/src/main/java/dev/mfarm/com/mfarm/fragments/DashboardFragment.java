@@ -112,9 +112,9 @@ public class DashboardFragment extends Fragment {
             imgmilk.setOnClickListener(v -> startActivity(new Intent(getActivity(), MilkProductionActivity.class)));
         }
 
-        Button imgmedication = view.findViewById(R.id.imgmedication);
-        if (imgmedication != null) {
-            imgmedication.setOnClickListener(v -> startActivity(new Intent(getActivity(), MedicationActivity.class)));
+        Button imgincome = view.findViewById(R.id.imgincome);
+        if (imgincome != null) {
+            imgincome.setOnClickListener(v -> startActivity(new Intent(getActivity(), IncomeActivity.class)));
         }
 
         Button imgexpenses = view.findViewById(R.id.imgexpenses);
@@ -125,6 +125,21 @@ public class DashboardFragment extends Fragment {
         Button imgvaccination = view.findViewById(R.id.imgvaccination);
         if (imgvaccination != null) {
             imgvaccination.setOnClickListener(v -> startActivity(new Intent(getActivity(), ScheduleVaccinationActivity.class)));
+        }
+
+        Button imgdisposal = view.findViewById(R.id.imgdisposal);
+        if (imgdisposal != null) {
+            imgdisposal.setOnClickListener(v -> startActivity(new Intent(getActivity(), DisposalActivity.class)));
+        }
+
+        Button imgcrop = view.findViewById(R.id.imgcrop);
+        if (imgcrop != null) {
+            imgcrop.setOnClickListener(v -> startActivity(new Intent(getActivity(), CropManagementActivity.class)));
+        }
+
+        Button imgmedication = view.findViewById(R.id.imgmedication);
+        if (imgmedication != null) {
+            imgmedication.setOnClickListener(v -> startActivity(new Intent(getActivity(), MedicationActivity.class)));
         }
 
         Button imginventory = view.findViewById(R.id.imginventory);
@@ -195,10 +210,16 @@ public class DashboardFragment extends Fragment {
             int sheep = countSpecies(db, "Sheep");
             int poultry = countSpecies(db, "Poultry");
             int rabbits = countSpecies(db, "Rabbit");
+            int knownSum = cattle + goats + sheep + poultry + rabbits;
+            int other = countOtherSpecies(db, knownSum);
 
             TextView tvSpecies = view.findViewById(R.id.tvDashSpeciesBreakdown);
             if (tvSpecies != null) {
-                tvSpecies.setText(String.format(Locale.US, "Species: %d Cattle • %d Goats • %d Sheep • %d Poultry • %d Rabbits", cattle, goats, sheep, poultry, rabbits));
+                if (other > 0) {
+                    tvSpecies.setText(String.format(Locale.US, "Species: %d Cattle • %d Goats • %d Sheep • %d Poultry • %d Rabbits • %d Other", cattle, goats, sheep, poultry, rabbits, other));
+                } else {
+                    tvSpecies.setText(String.format(Locale.US, "Species: %d Cattle • %d Goats • %d Sheep • %d Poultry • %d Rabbits", cattle, goats, sheep, poultry, rabbits));
+                }
             }
         } catch (Exception ignored) {}
 
@@ -295,6 +316,21 @@ public class DashboardFragment extends Fragment {
             c2.close();
         } catch (Exception ignored) {}
         return count;
+    }
+
+    private int countOtherSpecies(SQLiteDatabase db, int knownSum) {
+        if (db == null) return 0;
+        int total = 0;
+        try {
+            Cursor c1 = db.rawQuery("SELECT COUNT(*) FROM animas WHERE (lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = '')", null);
+            if (c1.moveToFirst()) total += c1.getInt(0);
+            c1.close();
+
+            Cursor c2 = db.rawQuery("SELECT SUM(current_quantity) FROM livestock_batches WHERE (status = 'Active' OR status IS NULL OR status = '')", null);
+            if (c2.moveToFirst()) total += c2.getInt(0);
+            c2.close();
+        } catch (Exception ignored) {}
+        return Math.max(0, total - knownSum);
     }
 
     public static boolean isSameMonth(String dateStr, int targetMonth, int targetYear) {

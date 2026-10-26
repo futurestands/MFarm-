@@ -112,4 +112,36 @@ public class DashboardCalculationTest {
 
         stmt.close();
     }
+
+    @Test
+    public void testMultiFormatDateFinancials() {
+        java.util.Calendar calToday = java.util.Calendar.getInstance();
+        int curMonth = calToday.get(java.util.Calendar.MONTH);
+        int curYear = calToday.get(java.util.Calendar.YEAR);
+
+        String ddMmYyyy = String.format(Locale.US, "15-%02d-%d", curMonth + 1, curYear);
+        String yyyyMmDd = String.format(Locale.US, "%d-%02d-15", curYear, curMonth + 1);
+        String oldDate = "10-01-2020";
+
+        assertTrue("Should parse dd-MM-yyyy date", dev.mfarm.com.mfarm.fragments.DashboardFragment.isSameMonth(ddMmYyyy, curMonth, curYear));
+        assertTrue("Should parse yyyy-MM-dd date", dev.mfarm.com.mfarm.fragments.DashboardFragment.isSameMonth(yyyyMmDd, curMonth, curYear));
+        org.junit.Assert.assertFalse("Should exclude old date", dev.mfarm.com.mfarm.fragments.DashboardFragment.isSameMonth(oldDate, curMonth, curYear));
+    }
+
+    @Test
+    public void testInactiveAndSoldAnimalFiltering() throws Exception {
+        Statement stmt = conn.createStatement();
+
+        // 1 Active, 1 Sold, 1 Deceased
+        stmt.execute("INSERT INTO animas (name, species, lifecycle_status) VALUES ('Active Cow', 'Cattle', 'Active')");
+        stmt.execute("INSERT INTO animas (name, species, lifecycle_status) VALUES ('Sold Goat', 'Goat', 'Sold')");
+        stmt.execute("INSERT INTO animas (name, species, lifecycle_status) VALUES ('Dead Hen', 'Poultry', 'Deceased')");
+
+        ResultSet rsActive = stmt.executeQuery("SELECT COUNT(*) FROM animas WHERE lifecycle_status = 'Active' OR lifecycle_status IS NULL OR lifecycle_status = ''");
+        assertTrue(rsActive.next());
+        assertEquals(1, rsActive.getInt(1));
+        rsActive.close();
+
+        stmt.close();
+    }
 }
