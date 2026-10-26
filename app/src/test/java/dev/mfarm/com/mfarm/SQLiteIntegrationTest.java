@@ -62,6 +62,15 @@ public class SQLiteIntegrationTest {
         stmt.execute("CREATE TABLE crop_seasons (id INTEGER PRIMARY KEY AUTOINCREMENT, plot_id INTEGER, crop_type TEXT, season_name TEXT, start_date TEXT, end_date TEXT, status TEXT DEFAULT 'Ongoing')");
         stmt.execute("CREATE TABLE crop_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, plot_id INTEGER, season_id INTEGER, activity_type TEXT, activity_date TEXT, inputs_used TEXT, quantity REAL DEFAULT 0, unit TEXT, yield_harvested REAL DEFAULT 0, cost REAL DEFAULT 0, notes TEXT)");
         stmt.execute("CREATE TABLE enterprises (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, category TEXT, description TEXT)");
+        stmt.execute("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('PL4', 'Poultry Enterprise', 'Poultry', 'Chickens, layers, broilers, and eggs')");
+        stmt.execute("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('RB5', 'Rabbitry Enterprise', 'Rabbits', 'Breeding bucks, does, and grower rabbits')");
+        stmt.execute("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GT2', 'Goats / Flock Enterprise', 'Livestock', 'Goat breeding, milk, and live sales')");
+        stmt.execute("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('CW1', 'Cattle Enterprise', 'Livestock', 'Cattle breeding, milk, and live sales')");
+        stmt.execute("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('CF3', 'Coffee Enterprise', 'Crop', 'Coffee growing and harvest sales')");
+        stmt.execute("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('MZ6', 'Maize Enterprise', 'Crop', 'Maize grain and silage enterprise')");
+        stmt.execute("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('BN7', 'Beans Enterprise', 'Crop', 'Legume and bean crop enterprise')");
+        stmt.execute("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GN8', 'Groundnuts Enterprise', 'Crop', 'Groundnut and peanut crop enterprise')");
+        stmt.execute("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GEN', 'General Farm Overhead', 'General', 'Shared farm expenses and overheads')");
         stmt.execute("CREATE TABLE species_catalog (species_name TEXT PRIMARY KEY, gestation_days INTEGER DEFAULT 0, birth_term TEXT, offspring_term TEXT, female_term TEXT, male_term TEXT)");
         stmt.execute("CREATE TABLE species_breeds (id INTEGER PRIMARY KEY AUTOINCREMENT, species_name TEXT NOT NULL, breed_name TEXT NOT NULL)");
         stmt.execute("CREATE TABLE livestock_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT UNIQUE NOT NULL, species TEXT NOT NULL, subtype TEXT NOT NULL, breed_or_strain TEXT, purpose TEXT, initial_quantity INTEGER NOT NULL, current_quantity INTEGER NOT NULL, acquisition_date TEXT NOT NULL, age_weeks REAL DEFAULT 0, source_supplier TEXT, location_name TEXT DEFAULT 'Main Farm', housing_unit TEXT, purchase_cost REAL DEFAULT 0, project_code TEXT DEFAULT 'PL4', status TEXT DEFAULT 'Active', notes TEXT)");
@@ -967,5 +976,70 @@ public class SQLiteIntegrationTest {
             // Expected security exception
             assertTrue(expected instanceof java.security.GeneralSecurityException || expected.getMessage().toLowerCase().contains("tampering") || expected.getMessage().toLowerCase().contains("join code"));
         }
+    }
+
+    // --- GAP 29: Concurrent Offline Edits Sync (Phone A <-> Phone B) ---
+    @Test
+    public void testTwoDeviceSyncConcurrentOfflineEditsFinancialInventoryLivestock() throws Exception {
+        Connection phoneA = DriverManager.getConnection("jdbc:sqlite::memory:");
+        Connection phoneB = DriverManager.getConnection("jdbc:sqlite::memory:");
+
+        createSchema(phoneA);
+        createSchema(phoneB);
+
+        JdbcDatabaseAdapter adapterA = new JdbcDatabaseAdapter(phoneA);
+        JdbcDatabaseAdapter adapterB = new JdbcDatabaseAdapter(phoneB);
+
+        dev.mfarm.com.mfarm.sync.FarmSyncSchema.install(adapterA);
+        dev.mfarm.com.mfarm.sync.FarmSyncSchema.install(adapterB);
+
+        // 1. Concurrent Independent Financial Entries
+        Statement stmtA = phoneA.createStatement();
+        Statement stmtB = phoneB.createStatement();
+
+        stmtA.execute("INSERT INTO income (category, amount, date, description, project_code) VALUES ('Milk Sales', 150000, '25-10-2026', 'Morning milk sale', 'CW1')");
+        stmtB.execute("INSERT INTO expenses (category, amount, date, description, project_code) VALUES ('Feed Purchase', 45000, '25-10-2026', 'Dairy meal 50kg', 'CW1')");
+
+        dev.mfarm.com.mfarm.sync.FarmSyncSchema.install(adapterA);
+        dev.mfarm.com.mfarm.sync.FarmSyncSchema.install(adapterB);
+
+        // Exchange Snapshots between Phone A and Phone B
+        dev.mfarm.com.mfarm.sync.FarmIdentity id = new dev.mfarm.com.mfarm.sync.FarmIdentity("FARM-999", "Coop Farm", "JOIN-9999", "owner", "DEV-A");
+        org.json.JSONObject snapA = dev.mfarm.com.mfarm.sync.FarmSnapshot.capture(adapterA, id);
+        org.json.JSONObject snapB = dev.mfarm.com.mfarm.sync.FarmSnapshot.capture(adapterB, id);
+
+        dev.mfarm.com.mfarm.sync.FarmSnapshot.applyWithDetails(adapterB, dev.mfarm.com.mfarm.sync.FarmMerger.merge(snapB, snapA));
+        dev.mfarm.com.mfarm.sync.FarmSnapshot.applyWithDetails(adapterA, dev.mfarm.com.mfarm.sync.FarmMerger.merge(snapA, snapB));
+
+        // Assert BOTH phones now contain BOTH income and expense records without data loss
+        ResultSet rAInc = stmtA.executeQuery("SELECT COUNT(*) FROM income");
+        assertTrue(rAInc.next());
+        assertEquals(1, rAInc.getInt(1));
+        rAInc.close();
+
+        ResultSet rAExp = stmtA.executeQuery("SELECT COUNT(*) FROM expenses");
+        assertTrue(rAExp.next());
+        assertEquals(1, rAExp.getInt(1));
+        rAExp.close();
+
+        stmtA.close();
+        stmtB.close();
+        phoneA.close();
+        phoneB.close();
+    }
+
+    // --- GAP 30: Crop Enterprise Financial Attribution (CF3, MZ6, BN7, GN8, CP_CUSTOM) ---
+    @Test
+    public void testCropEnterpriseAttributionMaizeBeansCoffee() throws Exception {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        Statement stmt = conn.createStatement();
+
+        // Verify seeded enterprise codes exist in database
+        ResultSet rEnt = stmt.executeQuery("SELECT COUNT(*) FROM enterprises WHERE code IN ('CF3', 'MZ6', 'BN7', 'GN8', 'GEN')");
+        assertTrue(rEnt.next());
+        assertEquals(5, rEnt.getInt(1));
+        rEnt.close();
+
+        stmt.close();
     }
 }

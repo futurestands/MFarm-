@@ -400,4 +400,25 @@ public final class BatchManager {
         if (location == null) return "LOC";
         return location.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
     }
+
+    public static void recalculateAllBatchQuantities(DatabaseAdapter db) {
+        if (db == null) return;
+        try {
+            Cursor c = db.query("SELECT batch_id, SUM(quantity_change) FROM batch_quantity_ledger GROUP BY batch_id", null);
+            if (c != null && c.moveToFirst()) {
+                do {
+                    String bId = c.getString(0);
+                    int sumQty = c.getInt(1);
+                    if (bId != null && !bId.trim().isEmpty()) {
+                        Map<String, Object> val = new HashMap<>();
+                        val.put("current_quantity", Math.max(0, sumQty));
+                        db.update("livestock_batches", val, "batch_id=?", new String[]{bId});
+                    }
+                } while (c.moveToNext());
+            }
+            if (c != null) c.close();
+        } catch (Exception e) {
+            System.err.println("BatchManager recalculate error: " + e.getMessage());
+        }
+    }
 }

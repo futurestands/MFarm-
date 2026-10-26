@@ -29,9 +29,14 @@ public class JdbcDatabaseAdapter implements DatabaseAdapter {
         try {
             String trimmed = sql != null ? sql.trim().toUpperCase() : "";
             if (!trimmed.startsWith("SELECT") && !trimmed.startsWith("PRAGMA")) {
-                Statement stmt = conn.createStatement();
-                stmt.executeUpdate(sql);
-                stmt.close();
+                PreparedStatement ps = conn.prepareStatement(sql);
+                if (selectionArgs != null) {
+                    for (int i = 0; i < selectionArgs.length; i++) {
+                        ps.setString(i + 1, selectionArgs[i]);
+                    }
+                }
+                ps.executeUpdate();
+                ps.close();
                 return new JdbcCursor();
             }
 

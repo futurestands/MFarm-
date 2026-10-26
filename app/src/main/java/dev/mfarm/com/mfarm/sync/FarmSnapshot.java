@@ -151,6 +151,7 @@ public final class FarmSnapshot {
             }
             if (failed == 0) {
                 resolveAnimalLineageLinks(db, ordered);
+                dev.mfarm.com.mfarm.dao.BatchManager.recalculateAllBatchQuantities(new AndroidDatabaseAdapter(db));
                 db.setTransactionSuccessful();
             } else {
                 Log.e(TAG, "Restore transaction failed with " + failed + " error(s). Rolling back transaction.");
@@ -185,7 +186,7 @@ public final class FarmSnapshot {
     private static void exportTable(DatabaseAdapter db, String table, JSONArray records) {
         Cursor cursor = null;
         try {
-            cursor = db.query("SELECT t.*, s.uuid, s.updated_at, s.deleted FROM " + table
+            cursor = db.query("SELECT t.*, s.uuid AS sync_uuid, s.updated_at AS sync_updated_at, s.deleted AS sync_deleted FROM " + table
                     + " t JOIN sync_index s ON s.table_name='" + table + "' AND s.local_id=t.id AND s.deleted=0", null);
             while (cursor != null && cursor.moveToNext()) {
                 records.put(cursorToRecord(db, table, cursor, false));
@@ -202,7 +203,7 @@ public final class FarmSnapshot {
         }
         Cursor cursor = null;
         try {
-            cursor = db.rawQuery("SELECT t.*, s.uuid, s.updated_at, s.deleted FROM " + table
+            cursor = db.rawQuery("SELECT t.*, s.uuid AS sync_uuid, s.updated_at AS sync_updated_at, s.deleted AS sync_deleted FROM " + table
                     + " t JOIN sync_index s ON s.table_name=? AND s.local_id=t.id AND s.deleted=0",
                     new String[]{table});
             while (cursor.moveToNext()) {
@@ -264,10 +265,12 @@ public final class FarmSnapshot {
 
     private static JSONObject cursorToRecord(DatabaseAdapter db, String table, Cursor cursor, boolean deleted) throws Exception {
         JSONObject rec = new JSONObject();
-        int uuidIdx = cursor.getColumnIndex("uuid");
+        int uuidIdx = cursor.getColumnIndex("sync_uuid");
+        if (uuidIdx < 0) uuidIdx = cursor.getColumnIndex("uuid");
         rec.put("uuid", uuidIdx >= 0 ? cursor.getString(uuidIdx) : "uuid-" + System.currentTimeMillis());
         rec.put("table", table);
-        int upIdx = cursor.getColumnIndex("updated_at");
+        int upIdx = cursor.getColumnIndex("sync_updated_at");
+        if (upIdx < 0) upIdx = cursor.getColumnIndex("updated_at");
         rec.put("updatedAt", upIdx >= 0 ? cursor.getLong(upIdx) : System.currentTimeMillis());
         rec.put("deleted", deleted);
         JSONObject fields = new JSONObject();
@@ -275,8 +278,8 @@ public final class FarmSnapshot {
         String[] names = cursor.getColumnNames();
         for (int i = 0; i < names.length; i++) {
             String col = names[i];
-            if ("id".equals(col) || "uuid".equals(col) || "updated_at".equals(col)
-                    || "deleted".equals(col) || "table_name".equals(col)) {
+            if ("id".equals(col) || "uuid".equals(col) || "sync_uuid".equals(col) || "updated_at".equals(col) || "sync_updated_at".equals(col)
+                    || "deleted".equals(col) || "sync_deleted".equals(col) || "table_name".equals(col)) {
                 continue;
             }
             if (isLinkColumn(col)) {
@@ -309,17 +312,21 @@ public final class FarmSnapshot {
     private static JSONObject cursorToRecord(SQLiteDatabase db, String table, Cursor cursor, boolean deleted)
             throws Exception {
         JSONObject rec = new JSONObject();
-        rec.put("uuid", cursor.getString(cursor.getColumnIndex("uuid")));
+        int uuidIdx = cursor.getColumnIndex("sync_uuid");
+        if (uuidIdx < 0) uuidIdx = cursor.getColumnIndex("uuid");
+        rec.put("uuid", cursor.getString(uuidIdx));
         rec.put("table", table);
-        rec.put("updatedAt", cursor.getLong(cursor.getColumnIndex("updated_at")));
+        int upIdx = cursor.getColumnIndex("sync_updated_at");
+        if (upIdx < 0) upIdx = cursor.getColumnIndex("updated_at");
+        rec.put("updatedAt", cursor.getLong(upIdx));
         rec.put("deleted", deleted);
         JSONObject fields = new JSONObject();
         JSONObject links = new JSONObject();
         String[] names = cursor.getColumnNames();
         for (int i = 0; i < names.length; i++) {
             String col = names[i];
-            if ("id".equals(col) || "uuid".equals(col) || "updated_at".equals(col)
-                    || "deleted".equals(col) || "table_name".equals(col)) {
+            if ("id".equals(col) || "uuid".equals(col) || "sync_uuid".equals(col) || "updated_at".equals(col) || "sync_updated_at".equals(col)
+                    || "deleted".equals(col) || "sync_deleted".equals(col) || "table_name".equals(col)) {
                 continue;
             }
             if (isLinkColumn(col)) {
@@ -380,20 +387,29 @@ public final class FarmSnapshot {
             }
 
             Cursor cIndex = db.query("SELECT local_id, updated_at FROM sync_index WHERE uuid=?", new String[]{uuid});
+            Integer existingLocalId = null;
             if (cIndex != null && cIndex.moveToFirst()) {
                 long localUpdated = cIndex.getLong(1);
-                int localId = cIndex.getInt(0);
+                existingLocalId = cIndex.getInt(0);
                 cIndex.close();
                 if (updatedAt < localUpdated) {
                     return false;
                 }
-                db.update(table, values, "id=?", new String[]{String.valueOf(localId)});
+            } else {
+                if (cIndex != null) cIndex.close();
+                existingLocalId = resolveUniqueLocalId(db, table, values);
+            }
+
+            if (existingLocalId != null) {
+                db.update(table, values, "id=?", new String[]{String.valueOf(existingLocalId)});
                 Map<String, Object> indexVal = new HashMap<>();
+                indexVal.put("uuid", uuid);
+                indexVal.put("table_name", table);
+                indexVal.put("local_id", existingLocalId);
                 indexVal.put("updated_at", updatedAt);
                 indexVal.put("deleted", 0);
                 db.update("sync_index", indexVal, "uuid=?", new String[]{uuid});
             } else {
-                if (cIndex != null) cIndex.close();
                 long newId = db.insert(table, null, values);
                 if (newId != -1) {
                     Map<String, Object> indexVal = new HashMap<>();
@@ -556,6 +572,29 @@ public final class FarmSnapshot {
         } else {
             fields.put(col, cursor.getString(i));
         }
+    }
+
+    private static Integer resolveUniqueLocalId(DatabaseAdapter db, String table, Map<String, Object> values) {
+        if (db == null || values == null) return null;
+        String uniqueCol = null;
+        if ("enterprises".equalsIgnoreCase(table)) uniqueCol = "code";
+        else if ("farm_locations".equalsIgnoreCase(table)) uniqueCol = "location_name";
+        else if ("housing_units".equalsIgnoreCase(table)) uniqueCol = "unit_name";
+        else if ("species_catalog".equalsIgnoreCase(table)) uniqueCol = "species_name";
+
+        if (uniqueCol != null && values.containsKey(uniqueCol)) {
+            Object val = values.get(uniqueCol);
+            if (val != null) {
+                Cursor c = db.query("SELECT id FROM " + table + " WHERE " + uniqueCol + " = ?", new String[]{String.valueOf(val)});
+                if (c != null && c.moveToFirst()) {
+                    int id = c.getInt(0);
+                    c.close();
+                    return id;
+                }
+                if (c != null) c.close();
+            }
+        }
+        return null;
     }
 
     private static boolean isLinkColumn(String col) {

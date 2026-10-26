@@ -486,7 +486,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('RB5', 'Rabbitry Enterprise', 'Rabbits', 'Breeding bucks, does, and grower rabbits')");
 			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GT2', 'Goats / Flock Enterprise', 'Livestock', 'Goat breeding, milk, and live sales')");
 			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('CW1', 'Cattle Enterprise', 'Livestock', 'Cattle breeding, milk, and live sales')");
-			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('CF3', 'Coffee & Crop Enterprise', 'Crop', 'Coffee, groundnuts, and cash crops')");
+			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('CF3', 'Coffee Enterprise', 'Crop', 'Coffee growing and harvest sales')");
+			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('MZ6', 'Maize Enterprise', 'Crop', 'Maize grain and silage enterprise')");
+			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('BN7', 'Beans Enterprise', 'Crop', 'Legume and bean crop enterprise')");
+			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GN8', 'Groundnuts Enterprise', 'Crop', 'Groundnut and peanut crop enterprise')");
 			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GEN', 'General Farm Overhead', 'General', 'Shared farm expenses and overheads')");
 		} catch (Exception ignored) {}
 

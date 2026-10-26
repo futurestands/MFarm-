@@ -1,6 +1,7 @@
 package dev.mfarm.com.mfarm;
 
 import android.app.DatePickerDialog;
+import android.content.ContentValues;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.view.MenuItem;
@@ -211,8 +212,37 @@ public class CropManagementActivity extends AppCompatActivity {
     }
 
     private String resolveEnterpriseCode(String cropType) {
-        if (cropType != null && cropType.toUpperCase().contains("CF3")) return "CF3";
-        return "GEN"; // General enterprise if not coffee
+        if (cropType == null || cropType.trim().isEmpty()) return "GEN";
+        String upper = cropType.trim().toUpperCase();
+        if (upper.contains("COFFEE") || upper.contains("CF3")) return "CF3";
+        if (upper.contains("MAIZE") || upper.contains("MZ6")) return "MZ6";
+        if (upper.contains("BEAN") || upper.contains("BN7")) return "BN7";
+        if (upper.contains("GROUNDNUT") || upper.contains("PEANUT") || upper.contains("GN8")) return "GN8";
+
+        // For custom crops, generate or retrieve a unique enterprise code like CP_BANANA
+        String cleanName = cropType.trim().replaceAll("[^a-zA-Z0-9]", "_").toUpperCase();
+        if (cleanName.length() > 10) cleanName = cleanName.substring(0, 10);
+        String customCode = "CP_" + cleanName;
+
+        try {
+            android.database.sqlite.SQLiteDatabase db = DatabaseHelper.getDatabase(this);
+            if (db != null) {
+                Cursor c = db.rawQuery("SELECT code FROM enterprises WHERE code = ?", new String[]{customCode});
+                if (c != null && c.moveToFirst()) {
+                    c.close();
+                } else {
+                    if (c != null) c.close();
+                    ContentValues cv = new ContentValues();
+                    cv.put("code", customCode);
+                    cv.put("name", cropType.trim() + " Enterprise");
+                    cv.put("category", "Crop");
+                    cv.put("description", "Auto-generated enterprise for " + cropType.trim());
+                    db.insert("enterprises", null, cv);
+                }
+            }
+        } catch (Exception ignored) {}
+
+        return customCode;
     }
 
     @Override
