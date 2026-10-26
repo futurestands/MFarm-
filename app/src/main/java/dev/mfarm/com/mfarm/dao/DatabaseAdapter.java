@@ -8,6 +8,7 @@ public interface DatabaseAdapter {
     long insert(String table, String nullColumnHack, Map<String, Object> values);
     int update(String table, Map<String, Object> values, String whereClause, String[] whereArgs);
     int delete(String table, String whereClause, String[] whereArgs);
+    void execSQL(String sql);
     void beginTransaction();
     void setTransactionSuccessful();
     void endTransaction();

@@ -180,6 +180,17 @@ public class JdbcDatabaseAdapter implements DatabaseAdapter {
     }
 
     @Override
+    public void execSQL(String sql) {
+        try {
+            Statement stmt = conn.createStatement();
+            stmt.execute(sql);
+            stmt.close();
+        } catch (Exception e) {
+            throw new RuntimeException("JDBC execSQL error: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
     public void beginTransaction() {
         try {
             transactionSuccessful = false;

@@ -64,6 +64,11 @@ public class AndroidDatabaseAdapter implements DatabaseAdapter {
     }
 
     @Override
+    public void execSQL(String sql) {
+        db.execSQL(sql);
+    }
+
+    @Override
     public void beginTransaction() {
         db.beginTransaction();
     }
