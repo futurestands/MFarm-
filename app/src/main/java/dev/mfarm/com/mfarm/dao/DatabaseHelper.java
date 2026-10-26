@@ -176,6 +176,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 		db.execSQL("CREATE TABLE IF NOT EXISTS crop_types (id INTEGER PRIMARY KEY AUTOINCREMENT, crop_name TEXT UNIQUE NOT NULL)");
 		db.execSQL("CREATE TABLE IF NOT EXISTS disposal_reasons (id INTEGER PRIMARY KEY AUTOINCREMENT, reason_name TEXT UNIQUE NOT NULL)");
 
+		// Case-insensitive uniqueness indexes at database level
+		try {
+			db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_enterprises_name_lower ON enterprises (LOWER(name))");
+			db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_enterprises_code_lower ON enterprises (LOWER(code))");
+		} catch (Exception ignored) {}
+
 		try {
 			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('PL4', 'Poultry Enterprise', 'Poultry', 'Chickens, layers, broilers, and eggs')");
 			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('RB5', 'Rabbitry Enterprise', 'Rabbits', 'Breeding bucks, does, and grower rabbits')");
@@ -545,6 +551,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('BN7', 'Beans Enterprise', 'Crop', 'Legume and bean crop enterprise')");
 			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GN8', 'Groundnuts Enterprise', 'Crop', 'Groundnut and peanut crop enterprise')");
 			db.execSQL("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GEN', 'General Farm Overhead', 'General', 'Shared farm expenses and overheads')");
+		} catch (Exception ignored) {}
+
+		try {
+			db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_enterprises_name_lower ON enterprises (LOWER(name))");
+			db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_enterprises_code_lower ON enterprises (LOWER(code))");
 		} catch (Exception ignored) {}
 
 		addColumnIfMissing(db, "vaccinations", "batch_number", "TEXT");
