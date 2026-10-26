@@ -67,7 +67,7 @@ public class IncomeActivity extends AppCompatActivity {
         btnDate.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                new DatePickerDialog(IncomeActivity.this, new DatePickerDialog.OnDateSetListener() {
+                new DatePickerDialog(IncomeActivity.this, R.style.GreenDatePickerTheme, new DatePickerDialog.OnDateSetListener() {
                     @Override
                     public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
                         calendar.set(Calendar.YEAR, year);
@@ -79,6 +79,7 @@ public class IncomeActivity extends AppCompatActivity {
             }
         });
 
+        View layoutCustomCategory = findViewById(R.id.layoutCustomCategory);
         spinnerCategory.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -89,6 +90,14 @@ public class IncomeActivity extends AppCompatActivity {
                 } else {
                     tvAnimalLabel.setVisibility(View.GONE);
                     spinnerAnimal.setVisibility(View.GONE);
+                }
+
+                if (layoutCustomCategory != null) {
+                    if (cat.contains("Other")) {
+                        layoutCustomCategory.setVisibility(View.VISIBLE);
+                    } else {
+                        layoutCustomCategory.setVisibility(View.GONE);
+                    }
                 }
             }
 
@@ -105,13 +114,13 @@ public class IncomeActivity extends AppCompatActivity {
     }
 
     private void updateDateButton() {
-        btnDate.setText(dateFormatter.format(calendar.getTime()));
+        btnDate.setText("📅 Date: " + dateFormatter.format(calendar.getTime()));
     }
 
     private void setupCategories() {
         android.database.sqlite.SQLiteDatabase db = getDb();
         dev.mfarm.com.mfarm.dao.DatabaseAdapter adapterDb = new dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter(db);
-        String[] defaultCat = {"Milk Sales", "Animal Sales", "Crop Sales", "Breeding Services", "Other Income"};
+        String[] defaultCat = {"Milk Sales", "Animal Sales", "Crop Sales", "Egg Sales", "Breeding Services", "Other Income (Specify)..."};
         List<String> categories = dev.mfarm.com.mfarm.dao.CategoryManager.getCategories(adapterDb, "income_categories", "category_name", defaultCat);
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, categories);
@@ -149,10 +158,15 @@ public class IncomeActivity extends AppCompatActivity {
 
     private void saveIncome() {
         String category = spinnerCategory.getSelectedItem().toString();
+        com.google.android.material.textfield.TextInputEditText etCustomCat = findViewById(R.id.etCustomCategory);
+        if (category.contains("Other") && etCustomCat != null && !etCustomCat.getText().toString().trim().isEmpty()) {
+            category = etCustomCat.getText().toString().trim();
+        }
+
         String amountStr = etAmount.getText().toString().trim();
         String buyer = etBuyer.getText().toString().trim();
         String description = etDescription.getText().toString().trim();
-        String date = btnDate.getText().toString();
+        String date = dateFormatter.format(calendar.getTime());
 
         if (amountStr.isEmpty()) {
             Toast.makeText(this, "Please enter amount", Toast.LENGTH_SHORT).show();
