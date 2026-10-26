@@ -181,6 +181,65 @@ public class DashboardFragment extends Fragment {
             } else {
                 tvStatAnimals.setText(String.valueOf(indivCount));
             }
+
+            // Species breakdown
+            int cattle = countSpecies(db, "Cattle");
+            int goats = countSpecies(db, "Goat");
+            int sheep = countSpecies(db, "Sheep");
+            int poultry = countSpecies(db, "Poultry");
+            int rabbits = countSpecies(db, "Rabbit");
+
+            TextView tvSpecies = getView() != null ? getView().findViewById(R.id.tvDashSpeciesBreakdown) : null;
+            if (tvSpecies != null) {
+                tvSpecies.setText(String.format(Locale.US, "Species: %d Cattle • %d Goats • %d Sheep • %d Poultry • %d Rabbits", cattle, goats, sheep, poultry, rabbits));
+            }
+        } catch (Exception ignored) {}
+
+        // Current Month UGX Cash Flow
+        try {
+            double mIncome = 0;
+            double mExpense = 0;
+
+            java.util.Calendar calToday = java.util.Calendar.getInstance();
+            int targetMonth = calToday.get(java.util.Calendar.MONTH);
+            int targetYear = calToday.get(java.util.Calendar.YEAR);
+
+            Cursor c1 = db.rawQuery("SELECT date, amount FROM income", null);
+            if (c1 != null) {
+                while (c1.moveToNext()) {
+                    String dStr = c1.getString(0);
+                    double amt = c1.getDouble(1);
+                    if (dev.mfarm.com.mfarm.intelligence.FarmIntelligenceEngine.isSameMonth(dStr, targetMonth, targetYear)) {
+                        mIncome += amt;
+                    }
+                }
+                c1.close();
+            }
+
+            Cursor c2 = db.rawQuery("SELECT date, amount FROM expenses", null);
+            if (c2 != null) {
+                while (c2.moveToNext()) {
+                    String dStr = c2.getString(0);
+                    double amt = c2.getDouble(1);
+                    if (dev.mfarm.com.mfarm.intelligence.FarmIntelligenceEngine.isSameMonth(dStr, targetMonth, targetYear)) {
+                        mExpense += amt;
+                    }
+                }
+                c2.close();
+            }
+
+            double net = mIncome - mExpense;
+
+            View v = getView();
+            if (v != null) {
+                TextView tvInc = v.findViewById(R.id.tvDashMonthIncome);
+                TextView tvExp = v.findViewById(R.id.tvDashMonthExpense);
+                TextView tvNet = v.findViewById(R.id.tvDashMonthNet);
+
+                if (tvInc != null) tvInc.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(mIncome));
+                if (tvExp != null) tvExp.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(mExpense));
+                if (tvNet != null) tvNet.setText(dev.mfarm.com.mfarm.dao.FormatUtils.formatCurrency(net));
+            }
         } catch (Exception ignored) {}
 
         // Today's Milk
@@ -290,6 +349,21 @@ public class DashboardFragment extends Fragment {
             }
             layoutWhatChangedContent.addView(itemTv);
         }
+    }
+
+    private int countSpecies(SQLiteDatabase db, String species) {
+        if (db == null || species == null) return 0;
+        int count = 0;
+        try {
+            Cursor c1 = db.rawQuery("SELECT COUNT(*) FROM animas WHERE (species LIKE ? OR species LIKE ?) AND (lifecycle_status = 'Active' OR lifecycle_status IS NULL)", new String[]{species, species + "s"});
+            if (c1.moveToFirst()) count += c1.getInt(0);
+            c1.close();
+
+            Cursor c2 = db.rawQuery("SELECT SUM(current_quantity) FROM livestock_batches WHERE species LIKE ? AND (status = 'Active' OR status IS NULL)", new String[]{species});
+            if (c2.moveToFirst()) count += c2.getInt(0);
+            c2.close();
+        } catch (Exception ignored) {}
+        return count;
     }
 
     private void loadFarmInsights(SQLiteDatabase db) {
