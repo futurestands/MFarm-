@@ -632,17 +632,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 	}
 
 	public static void logAudit(SQLiteDatabase db, String action, String module, long recordId, String details) {
-		if (db == null || !db.isOpen()) return;
-		try {
-			ContentValues values = new ContentValues();
-			values.put("timestamp", System.currentTimeMillis());
-			values.put("action", action);
-			values.put("module", module);
-			values.put("record_id", recordId);
-			values.put("details", details);
-			db.insert("audit_logs", null, values);
-		} catch (Exception e) {
-			Log.w("DatabaseHelper", "Failed to write audit log", e);
+		if (db == null || !db.isOpen()) {
+			throw new IllegalStateException("Database unavailable for audit logging");
+		}
+		ContentValues values = new ContentValues();
+		values.put("timestamp", System.currentTimeMillis());
+		values.put("action", action);
+		values.put("module", module);
+		values.put("record_id", recordId);
+		values.put("details", details);
+		long rowId = db.insert("audit_logs", null, values);
+		if (rowId == -1) {
+			throw new RuntimeException("Failed to write audit log to database");
 		}
 	}
 
