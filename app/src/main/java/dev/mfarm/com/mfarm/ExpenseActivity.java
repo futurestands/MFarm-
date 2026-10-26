@@ -166,6 +166,9 @@ public class ExpenseActivity extends AppCompatActivity {
             return;
         }
 
+        boolean success = false;
+        String errorMessage = null;
+
         db.beginTransaction();
         try {
             DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
@@ -182,12 +185,18 @@ public class ExpenseActivity extends AppCompatActivity {
             DatabaseHelper.logAudit(db, "RECORD_EXPENSE", "FINANCIAL", rowId, "Expense: " + category + " - " + amount);
 
             db.setTransactionSuccessful();
-            Toast.makeText(this, "Expense Saved Successfully", Toast.LENGTH_LONG).show();
-            finish();
+            success = true;
         } catch (Exception e) {
-            Toast.makeText(this, "Error saving expense: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            errorMessage = e.getMessage();
         } finally {
             db.endTransaction();
+        }
+
+        if (success) {
+            Toast.makeText(this, "Expense Saved Successfully", Toast.LENGTH_LONG).show();
+            finish();
+        } else {
+            Toast.makeText(this, "Error saving expense: " + (errorMessage != null ? errorMessage : "Transaction failed"), Toast.LENGTH_LONG).show();
         }
     }
 

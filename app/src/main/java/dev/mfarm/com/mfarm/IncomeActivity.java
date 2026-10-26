@@ -196,11 +196,19 @@ public class IncomeActivity extends AppCompatActivity {
         int animalPos = spinnerAnimal.getSelectedItemPosition();
         int relatedAnimalId = (animalPos >= 0 && animalPos < animalIds.size()) ? animalIds.get(animalPos) : -1;
 
+        if ("Animal Sales".equalsIgnoreCase(category) && relatedAnimalId == -1) {
+            Toast.makeText(this, "Please select the animal being sold", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         android.database.sqlite.SQLiteDatabase db = getDb();
         if (db == null || !db.isOpen()) {
             Toast.makeText(this, "Database unavailable", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        boolean success = false;
+        String errorMessage = null;
 
         db.beginTransaction();
         try {
@@ -229,20 +237,26 @@ public class IncomeActivity extends AppCompatActivity {
                 ContentValues statusValues = new ContentValues();
                 statusValues.put("lifecycle_status", "Sold");
                 int updatedRows = db.update("animas", statusValues, "id=?", new String[]{String.valueOf(relatedAnimalId)});
-                if (updatedRows <= 0) {
-                    throw new RuntimeException("Failed to update animal status for ID " + relatedAnimalId);
+                if (updatedRows != 1) {
+                    throw new RuntimeException("Expected exactly 1 animal row updated, but got " + updatedRows);
                 }
             }
 
             DatabaseHelper.logAudit(db, "RECORD_INCOME", "FINANCIAL", rowId, "Income: " + category + " - " + amount);
 
             db.setTransactionSuccessful();
-            Toast.makeText(this, "Income Record Saved Successfully", Toast.LENGTH_SHORT).show();
-            finish();
+            success = true;
         } catch (Exception e) {
-            Toast.makeText(this, "Error saving income: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            errorMessage = e.getMessage();
         } finally {
             db.endTransaction();
+        }
+
+        if (success) {
+            Toast.makeText(this, "Income Record Saved Successfully", Toast.LENGTH_SHORT).show();
+            finish();
+        } else {
+            Toast.makeText(this, "Error saving income: " + (errorMessage != null ? errorMessage : "Transaction failed"), Toast.LENGTH_LONG).show();
         }
     }
 
