@@ -93,7 +93,7 @@ public class IncomeActivity extends AppCompatActivity {
                 }
 
                 if (layoutCustomCategory != null) {
-                    if (cat.contains("Other")) {
+                    if (dev.mfarm.com.mfarm.dao.CategoryManager.OTHER_SENTINEL.equals(cat)) {
                         layoutCustomCategory.setVisibility(View.VISIBLE);
                     } else {
                         layoutCustomCategory.setVisibility(View.GONE);
@@ -120,7 +120,7 @@ public class IncomeActivity extends AppCompatActivity {
     private void setupCategories() {
         android.database.sqlite.SQLiteDatabase db = getDb();
         dev.mfarm.com.mfarm.dao.DatabaseAdapter adapterDb = new dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter(db);
-        String[] defaultCat = {"Milk Sales", "Animal Sales", "Crop Sales", "Egg Sales", "Breeding Services", "Other Income (Specify)..."};
+        String[] defaultCat = {"Milk Sales", "Animal Sales", "Crop Sales", "Egg Sales", "Breeding Services"};
         List<String> categories = dev.mfarm.com.mfarm.dao.CategoryManager.getCategories(adapterDb, "income_categories", "category_name", defaultCat);
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, categories);
@@ -159,8 +159,13 @@ public class IncomeActivity extends AppCompatActivity {
     private void saveIncome() {
         String category = spinnerCategory.getSelectedItem().toString();
         com.google.android.material.textfield.TextInputEditText etCustomCat = findViewById(R.id.etCustomCategory);
-        if (category.contains("Other") && etCustomCat != null && !etCustomCat.getText().toString().trim().isEmpty()) {
-            category = etCustomCat.getText().toString().trim();
+        if (dev.mfarm.com.mfarm.dao.CategoryManager.OTHER_SENTINEL.equals(category)) {
+            if (etCustomCat != null && !etCustomCat.getText().toString().trim().isEmpty()) {
+                category = etCustomCat.getText().toString().trim();
+            } else {
+                Toast.makeText(this, "Please specify custom income category name", Toast.LENGTH_SHORT).show();
+                return;
+            }
         }
 
         String amountStr = etAmount.getText().toString().trim();
@@ -169,11 +174,22 @@ public class IncomeActivity extends AppCompatActivity {
         String date = dateFormatter.format(calendar.getTime());
 
         if (amountStr.isEmpty()) {
-            Toast.makeText(this, "Please enter amount", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Please enter income amount", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        double amount = Double.parseDouble(amountStr);
+        double amount;
+        try {
+            amount = Double.parseDouble(amountStr);
+            if (!Double.isFinite(amount) || amount <= 0) {
+                Toast.makeText(this, "Please enter a valid positive amount", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        } catch (NumberFormatException e) {
+            Toast.makeText(this, "Invalid amount format", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         int animalPos = spinnerAnimal.getSelectedItemPosition();
         int relatedAnimalId = (animalPos >= 0 && animalPos < animalIds.size()) ? animalIds.get(animalPos) : -1;
 
@@ -182,6 +198,9 @@ public class IncomeActivity extends AppCompatActivity {
 
         db.beginTransaction();
         try {
+            dev.mfarm.com.mfarm.dao.DatabaseAdapter adapterDb = new dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter(db);
+            dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapterDb, "income_categories", "category_name", category);
+
             ContentValues values = new ContentValues();
             values.put("category", category);
             values.put("amount", amount);
@@ -193,6 +212,9 @@ public class IncomeActivity extends AppCompatActivity {
             }
 
             long rowId = db.insert("income", null, values);
+            if (rowId == -1) {
+                throw new RuntimeException("Database insertion failed for income record");
+            }
 
             if ("Animal Sales".equalsIgnoreCase(category) && relatedAnimalId != -1) {
                 ContentValues statusValues = new ContentValues();

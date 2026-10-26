@@ -9,6 +9,8 @@ import java.util.Map;
 
 public final class CategoryManager {
 
+    public static final String OTHER_SENTINEL = "Other (Specify)...";
+
     private CategoryManager() {}
 
     public static List<String> getLocations(DatabaseAdapter db) {

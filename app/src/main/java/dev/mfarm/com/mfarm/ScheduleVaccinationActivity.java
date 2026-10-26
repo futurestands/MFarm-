@@ -107,7 +107,7 @@ public class ScheduleVaccinationActivity extends AppCompatActivity {
     }
 
     private void showDatePicker() {
-        new DatePickerDialog(this, new DatePickerDialog.OnDateSetListener() {
+        DatePickerDialog dpd = new DatePickerDialog(this, R.style.GreenDatePickerTheme, new DatePickerDialog.OnDateSetListener() {
             @Override
             public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
                 calendar.set(Calendar.YEAR, year);
@@ -116,11 +116,20 @@ public class ScheduleVaccinationActivity extends AppCompatActivity {
                 snapCalendarToReminderHour();
                 updateDateButton();
             }
-        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show();
+        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
+
+        // Set minDate to midnight of today local calendar day
+        Calendar todayMin = Calendar.getInstance();
+        todayMin.set(Calendar.HOUR_OF_DAY, 0);
+        todayMin.set(Calendar.MINUTE, 0);
+        todayMin.set(Calendar.SECOND, 0);
+        todayMin.set(Calendar.MILLISECOND, 0);
+        dpd.getDatePicker().setMinDate(todayMin.getTimeInMillis());
+        dpd.show();
     }
 
     private void updateDateButton() {
-        btnDate.setText(dateFormatter.format(calendar.getTime()));
+        btnDate.setText("📅 Scheduled Date: " + dateFormatter.format(calendar.getTime()));
     }
 
     private void saveVaccination() {

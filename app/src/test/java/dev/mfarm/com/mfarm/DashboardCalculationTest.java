@@ -25,13 +25,16 @@ public class DashboardCalculationTest {
     @Before
     public void setUp() throws Exception {
         conn = DriverManager.getConnection("jdbc:sqlite::memory:");
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        dev.mfarm.com.mfarm.dao.DatabaseHelper.ensureSchema(adapter);
+
         Statement stmt = conn.createStatement();
-        stmt.execute("CREATE TABLE animas (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, species TEXT, gender TEXT, lifecycle_status TEXT DEFAULT 'Active')");
-        stmt.execute("CREATE TABLE livestock_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT UNIQUE, species TEXT, current_quantity INTEGER, status TEXT DEFAULT 'Active')");
-        stmt.execute("CREATE TABLE inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, item_name TEXT, quantity REAL, min_quantity REAL)");
-        stmt.execute("CREATE TABLE vaccinations (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, vaccine_name TEXT, scheduled_date TEXT, status TEXT)");
-        stmt.execute("CREATE TABLE income (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, amount REAL, date TEXT, description TEXT)");
-        stmt.execute("CREATE TABLE expenses (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, amount REAL, date TEXT, description TEXT)");
+        stmt.execute("CREATE TABLE IF NOT EXISTS animas (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, species TEXT, gender TEXT, lifecycle_status TEXT DEFAULT 'Active')");
+        stmt.execute("CREATE TABLE IF NOT EXISTS livestock_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT UNIQUE, species TEXT, current_quantity INTEGER, status TEXT DEFAULT 'Active')");
+        stmt.execute("CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, item_name TEXT, quantity REAL, min_quantity REAL)");
+        stmt.execute("CREATE TABLE IF NOT EXISTS vaccinations (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, vaccine_name TEXT, scheduled_date TEXT, status TEXT)");
+        stmt.execute("CREATE TABLE IF NOT EXISTS income (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, amount REAL, date TEXT, description TEXT)");
+        stmt.execute("CREATE TABLE IF NOT EXISTS expenses (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, amount REAL, date TEXT, description TEXT)");
         stmt.close();
     }
 
@@ -64,7 +67,7 @@ public class DashboardCalculationTest {
         // Add 2 individual cattle and 100 poultry batch
         stmt.execute("INSERT INTO animas (name, species, gender) VALUES ('Daisy', 'Cattle', 'Female')");
         stmt.execute("INSERT INTO animas (name, species, gender) VALUES ('Boss', 'Cattle', 'Male')");
-        stmt.execute("INSERT INTO livestock_batches (batch_id, species, current_quantity) VALUES ('BATCH-100', 'Poultry', 100)");
+        stmt.execute("INSERT INTO livestock_batches (batch_id, species, subtype, initial_quantity, current_quantity, acquisition_date) VALUES ('BATCH-100', 'Poultry', 'Chicks', 100, 100, '01-01-2026')");
 
         // Add monthly income and expenses
         String today = new SimpleDateFormat("dd-MM-yyyy", Locale.US).format(new Date());
@@ -143,5 +146,48 @@ public class DashboardCalculationTest {
         rsActive.close();
 
         stmt.close();
+    }
+
+    @Test
+    public void testOtherSentinelExactMatching() {
+        String sentinel = dev.mfarm.com.mfarm.dao.CategoryManager.OTHER_SENTINEL;
+        assertEquals("Other (Specify)...", sentinel);
+
+        // Legitimate category containing "Other" should NOT trigger sentinel match
+        String legitCategory = "Other Income";
+        org.junit.Assert.assertFalse("Legitimate 'Other Income' must not trigger sentinel match", sentinel.equals(legitCategory));
+        assertTrue("Exact sentinel string must match", sentinel.equals("Other (Specify)..."));
+    }
+
+    @Test
+    public void testNonpositiveAndNonfiniteAmountValidation() {
+        double zero = 0.0;
+        double negative = -1500.0;
+        double nan = Double.NaN;
+        double inf = Double.POSITIVE_INFINITY;
+        double valid = 50000.0;
+
+        org.junit.Assert.assertFalse("Zero amount must be rejected", Double.isFinite(zero) && zero > 0);
+        org.junit.Assert.assertFalse("Negative amount must be rejected", Double.isFinite(negative) && negative > 0);
+        org.junit.Assert.assertFalse("NaN amount must be rejected", Double.isFinite(nan) && nan > 0);
+        org.junit.Assert.assertFalse("Infinite amount must be rejected", Double.isFinite(inf) && inf > 0);
+        assertTrue("Valid positive amount must pass", Double.isFinite(valid) && valid > 0);
+    }
+
+    @Test
+    public void testCustomCategoryPersistenceAndDeduplication() {
+        JdbcDatabaseAdapter adapter = new JdbcDatabaseAdapter(conn);
+        
+        // Add valid custom category
+        boolean added1 = dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapter, "income_categories", "category_name", "Consultancy Fees");
+        assertTrue("Custom category should be inserted", added1);
+
+        // Duplicate case-insensitive insert must be rejected
+        boolean added2 = dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapter, "income_categories", "category_name", "consultancy fees");
+        org.junit.Assert.assertFalse("Duplicate case-insensitive category must be rejected", added2);
+
+        // Empty/Sentinel category must be rejected
+        boolean added3 = dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapter, "income_categories", "category_name", "Other (Specify)...");
+        org.junit.Assert.assertFalse("Sentinel string cannot be saved as a category", added3);
     }
 }

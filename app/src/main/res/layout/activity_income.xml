@@ -92,7 +92,7 @@
                 android:textColor="#2E7D32"
                 android:textSize="14sp"
                 android:textStyle="bold"
-                android:text="📅 Date: 26-10-2026" />
+                android:text="Select Date" />
 
             <TextView
                 android:id="@+id/tvAnimalLabel"

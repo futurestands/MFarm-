@@ -22,6 +22,11 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
+import dev.mfarm.com.mfarm.dao.CategoryManager;
+import dev.mfarm.com.mfarm.dao.DatabaseAdapter;
+import dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter;
+import dev.mfarm.com.mfarm.dao.DatabaseHelper;
+
 public class ExpenseActivity extends AppCompatActivity {
 
     private Spinner spinnerCategory;
@@ -70,10 +75,10 @@ public class ExpenseActivity extends AppCompatActivity {
     }
 
     private void setupCategories() {
-        android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(this);
-        dev.mfarm.com.mfarm.dao.DatabaseAdapter adapterDb = new dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter(db);
-        String[] defaultCat = {"Feeds & Supplements", "Veterinary & Medicine", "Labor & Wages", "Equipment & Tools", "Seeds & Fertilizer", "Transport", "Other Expense (Specify)..."};
-        List<String> categories = dev.mfarm.com.mfarm.dao.CategoryManager.getCategories(adapterDb, "expense_categories", "category_name", defaultCat);
+        android.database.sqlite.SQLiteDatabase db = DatabaseHelper.getDatabase(this);
+        DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
+        String[] defaultCat = {"Feeds & Supplements", "Veterinary & Medicine", "Labor & Wages", "Equipment & Tools", "Seeds & Fertilizer", "Transport"};
+        List<String> categories = CategoryManager.getCategories(adapterDb, "expense_categories", "category_name", defaultCat);
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, categories);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -84,7 +89,7 @@ public class ExpenseActivity extends AppCompatActivity {
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String cat = parent.getItemAtPosition(position).toString();
                 if (layoutCustomCategory != null) {
-                    if (cat.contains("Other")) {
+                    if (CategoryManager.OTHER_SENTINEL.equals(cat)) {
                         layoutCustomCategory.setVisibility(View.VISIBLE);
                     } else {
                         layoutCustomCategory.setVisibility(View.GONE);
@@ -119,11 +124,13 @@ public class ExpenseActivity extends AppCompatActivity {
 
     private void saveExpense() {
         String category = spinnerCategory.getSelectedItem().toString();
-        if (category.contains("Other") && etCategory != null && !etCategory.getText().toString().trim().isEmpty()) {
-            category = etCategory.getText().toString().trim();
-        } else if (category.contains("Other")) {
-            Toast.makeText(this, "Please specify custom expense category name", Toast.LENGTH_SHORT).show();
-            return;
+        if (CategoryManager.OTHER_SENTINEL.equals(category)) {
+            if (etCategory != null && !etCategory.getText().toString().trim().isEmpty()) {
+                category = etCategory.getText().toString().trim();
+            } else {
+                Toast.makeText(this, "Please specify custom expense category name", Toast.LENGTH_SHORT).show();
+                return;
+            }
         }
 
         String amountStr = etAmount.getText().toString().trim();
@@ -135,7 +142,17 @@ public class ExpenseActivity extends AppCompatActivity {
             return;
         }
 
-        double amount = Double.parseDouble(amountStr);
+        double amount;
+        try {
+            amount = Double.parseDouble(amountStr);
+            if (!Double.isFinite(amount) || amount <= 0) {
+                Toast.makeText(this, "Please enter a valid positive amount", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        } catch (NumberFormatException e) {
+            Toast.makeText(this, "Invalid amount format", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         ContentValues values = new ContentValues();
         values.put("category", category);
@@ -144,11 +161,20 @@ public class ExpenseActivity extends AppCompatActivity {
         values.put("description", description);
 
         try {
-            android.database.sqlite.SQLiteDatabase db = dev.mfarm.com.mfarm.dao.DatabaseHelper.getDatabase(this);
+            android.database.sqlite.SQLiteDatabase db = DatabaseHelper.getDatabase(this);
             if (db != null) {
-                dev.mfarm.com.mfarm.dao.DatabaseAdapter adapterDb = new dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter(db);
-                dev.mfarm.com.mfarm.dao.CategoryManager.addCategory(adapterDb, "expense_categories", "category_name", category);
-                db.insert("expenses", null, values);
+                db.beginTransaction();
+                try {
+                    DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
+                    CategoryManager.addCategory(adapterDb, "expense_categories", "category_name", category);
+                    long rowId = db.insert("expenses", null, values);
+                    if (rowId == -1) {
+                        throw new RuntimeException("Database insertion failed for expense record");
+                    }
+                    db.setTransactionSuccessful();
+                } finally {
+                    db.endTransaction();
+                }
             }
             Toast.makeText(this, "Expense Saved Successfully", Toast.LENGTH_LONG).show();
             finish();

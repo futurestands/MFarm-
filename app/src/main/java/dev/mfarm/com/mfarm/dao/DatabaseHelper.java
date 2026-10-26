@@ -142,9 +142,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 			return;
 		}
 		// Execute DDL via DatabaseAdapter execSQL
-		db.execSQL("CREATE TABLE IF NOT EXISTS expenses (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, amount REAL, date TEXT, description TEXT)");
+		db.execSQL("CREATE TABLE IF NOT EXISTS animas (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, species TEXT, gender TEXT, dob TEXT, breed TEXT, origin TEXT, color TEXT, photo TEXT, weight REAL, height REAL, girth REAL, sire_id INTEGER, dam_id INTEGER, lifecycle_status TEXT DEFAULT 'Active', notes TEXT)");
+		db.execSQL("CREATE TABLE IF NOT EXISTS milk_production (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, litres REAL, datetime TEXT, session TEXT, notes TEXT, morning_yield REAL DEFAULT 0, afternoon_yield REAL DEFAULT 0, evening_yield REAL DEFAULT 0)");
+		db.execSQL("CREATE TABLE IF NOT EXISTS income (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, amount REAL, buyer TEXT, date TEXT, description TEXT, related_animal_id INTEGER, project_code TEXT)");
+		db.execSQL("CREATE TABLE IF NOT EXISTS expenses (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, amount REAL, date TEXT, description TEXT, payee TEXT, payment_method TEXT, related_animal_id INTEGER, project_code TEXT)");
 		db.execSQL("CREATE TABLE IF NOT EXISTS vaccinations (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, vaccine_name TEXT, scheduled_date TEXT, status TEXT, remarks TEXT)");
-		db.execSQL("CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, item_name TEXT, category TEXT, quantity REAL, unit TEXT, reorder_level REAL)");
+		db.execSQL("CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, item_name TEXT, category TEXT, quantity REAL, unit TEXT, reorder_level REAL, min_quantity REAL DEFAULT 0)");
 		db.execSQL("CREATE TABLE IF NOT EXISTS inventory_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, type TEXT, quantity REAL, date TEXT, remarks TEXT)");
 		db.execSQL("CREATE TABLE IF NOT EXISTS breeding_records (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, mating_date TEXT, bull_id TEXT, expected_birth_date TEXT, status TEXT, pregnancy_confirmed INTEGER)");
 		db.execSQL("CREATE TABLE IF NOT EXISTS vet_checks (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, check_type TEXT, check_date TEXT, remarks TEXT)");
