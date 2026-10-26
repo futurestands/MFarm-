@@ -135,6 +135,60 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 		return database;
 	}
 
+	public static void ensureSchema(DatabaseAdapter db) {
+		if (db == null) return;
+		if (db instanceof AndroidDatabaseAdapter) {
+			ensureSchema(((AndroidDatabaseAdapter) db).getSQLiteDatabase());
+			return;
+		}
+		// Execute DDL via DatabaseAdapter for test environments
+		db.query("CREATE TABLE IF NOT EXISTS expenses (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, amount REAL, date TEXT, description TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS vaccinations (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, vaccine_name TEXT, scheduled_date TEXT, status TEXT, remarks TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, item_name TEXT, category TEXT, quantity REAL, unit TEXT, reorder_level REAL)", null);
+		db.query("CREATE TABLE IF NOT EXISTS inventory_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, type TEXT, quantity REAL, date TEXT, remarks TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS breeding_records (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, mating_date TEXT, bull_id TEXT, expected_birth_date TEXT, status TEXT, pregnancy_confirmed INTEGER)", null);
+		db.query("CREATE TABLE IF NOT EXISTS vet_checks (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, check_type TEXT, check_date TEXT, remarks TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS calving_records (id INTEGER PRIMARY KEY AUTOINCREMENT, dam_id INTEGER, sire_id TEXT, birth_date TEXT, offspring_id INTEGER, sex TEXT, birth_weight REAL, survival_status TEXT, notes TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS feed_types (id INTEGER PRIMARY KEY AUTOINCREMENT, feed_name TEXT, category TEXT, unit TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS feed_consumption (id INTEGER PRIMARY KEY AUTOINCREMENT, feed_id INTEGER, date TEXT, quantity REAL, cost REAL, group_or_animal_id TEXT, notes TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS farm_profile (id INTEGER PRIMARY KEY AUTOINCREMENT, farm_name TEXT, owner_name TEXT, location TEXT, phone TEXT, reg_number TEXT, currency_symbol TEXT, farm_size TEXT, notes TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INTEGER, action TEXT, module TEXT, entity_id INTEGER, details TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS disposal_records (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, animal_tag TEXT, sex TEXT, age_months REAL, disposal_date TEXT, method TEXT, cause_or_reason TEXT, price REAL DEFAULT 0, buyer_or_destination TEXT, notes TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS farm_locations (id INTEGER PRIMARY KEY AUTOINCREMENT, location_name TEXT UNIQUE NOT NULL, description TEXT, is_default INTEGER DEFAULT 0)", null);
+		db.query("CREATE TABLE IF NOT EXISTS animal_movements (id INTEGER PRIMARY KEY AUTOINCREMENT, animal_id INTEGER, animal_name TEXT, from_location TEXT, to_location TEXT, movement_date TEXT, reason TEXT, moved_by TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS crop_plots (id INTEGER PRIMARY KEY AUTOINCREMENT, plot_name TEXT NOT NULL, crop_type TEXT NOT NULL, size_acres REAL DEFAULT 0, location_name TEXT, status TEXT DEFAULT 'Active')", null);
+		db.query("CREATE TABLE IF NOT EXISTS crop_seasons (id INTEGER PRIMARY KEY AUTOINCREMENT, plot_id INTEGER, crop_type TEXT, season_name TEXT, start_date TEXT, end_date TEXT, status TEXT DEFAULT 'Ongoing')", null);
+		db.query("CREATE TABLE IF NOT EXISTS crop_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, plot_id INTEGER, season_id INTEGER, activity_type TEXT, activity_date TEXT, inputs_used TEXT, quantity REAL DEFAULT 0, unit TEXT, yield_harvested REAL DEFAULT 0, cost REAL DEFAULT 0, notes TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS enterprises (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, category TEXT, description TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS species_catalog (species_name TEXT PRIMARY KEY, gestation_days INTEGER DEFAULT 0, birth_term TEXT, offspring_term TEXT, female_term TEXT, male_term TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS species_breeds (id INTEGER PRIMARY KEY AUTOINCREMENT, species_name TEXT NOT NULL, breed_name TEXT NOT NULL)", null);
+		db.query("CREATE TABLE IF NOT EXISTS livestock_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT UNIQUE NOT NULL, species TEXT NOT NULL, subtype TEXT NOT NULL, breed_or_strain TEXT, purpose TEXT, initial_quantity INTEGER NOT NULL, current_quantity INTEGER NOT NULL, acquisition_date TEXT NOT NULL, age_weeks REAL DEFAULT 0, source_supplier TEXT, location_name TEXT DEFAULT 'Main Farm', housing_unit TEXT, purchase_cost REAL DEFAULT 0, project_code TEXT DEFAULT 'PL4', status TEXT DEFAULT 'Active', notes TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS batch_quantity_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT NOT NULL, event_type TEXT NOT NULL, event_date TEXT NOT NULL, quantity_change INTEGER NOT NULL, resulting_quantity INTEGER NOT NULL, unit_price REAL DEFAULT 0, total_amount REAL DEFAULT 0, source_ref TEXT, notes TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS egg_production_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT NOT NULL, log_date TEXT NOT NULL, eggs_collected INTEGER NOT NULL, broken_eggs INTEGER DEFAULT 0, notes TEXT)", null);
+		db.query("CREATE TABLE IF NOT EXISTS housing_units (id INTEGER PRIMARY KEY AUTOINCREMENT, unit_name TEXT UNIQUE NOT NULL, location_name TEXT DEFAULT 'Main Farm', capacity INTEGER DEFAULT 1000)", null);
+		db.query("CREATE TABLE IF NOT EXISTS import_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_uuid TEXT UNIQUE NOT NULL, file_name TEXT NOT NULL, imported_at INTEGER NOT NULL, record_count INTEGER NOT NULL, summary_json TEXT, status TEXT DEFAULT 'Completed')", null);
+		db.query("CREATE TABLE IF NOT EXISTS import_batch_items (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_uuid TEXT NOT NULL, table_name TEXT NOT NULL, record_id INTEGER NOT NULL, action_type TEXT NOT NULL, before_image_json TEXT, created_at INTEGER NOT NULL)", null);
+
+		db.query("CREATE TABLE IF NOT EXISTS income_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, category_name TEXT UNIQUE NOT NULL)", null);
+		db.query("CREATE TABLE IF NOT EXISTS expense_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, category_name TEXT UNIQUE NOT NULL)", null);
+		db.query("CREATE TABLE IF NOT EXISTS inventory_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, category_name TEXT UNIQUE NOT NULL)", null);
+		db.query("CREATE TABLE IF NOT EXISTS inventory_units (id INTEGER PRIMARY KEY AUTOINCREMENT, unit_name TEXT UNIQUE NOT NULL)", null);
+		db.query("CREATE TABLE IF NOT EXISTS crop_types (id INTEGER PRIMARY KEY AUTOINCREMENT, crop_name TEXT UNIQUE NOT NULL)", null);
+		db.query("CREATE TABLE IF NOT EXISTS disposal_reasons (id INTEGER PRIMARY KEY AUTOINCREMENT, reason_name TEXT UNIQUE NOT NULL)", null);
+
+		try {
+			db.query("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('PL4', 'Poultry Enterprise', 'Poultry', 'Chickens, layers, broilers, and eggs')", null);
+			db.query("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('RB5', 'Rabbitry Enterprise', 'Rabbits', 'Breeding bucks, does, and grower rabbits')", null);
+			db.query("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GT2', 'Goats / Flock Enterprise', 'Livestock', 'Goat breeding, milk, and live sales')", null);
+			db.query("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('CW1', 'Cattle Enterprise', 'Livestock', 'Cattle breeding, milk, and live sales')", null);
+			db.query("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('CF3', 'Coffee Enterprise', 'Crop', 'Coffee growing and harvest sales')", null);
+			db.query("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('MZ6', 'Maize Enterprise', 'Crop', 'Maize grain and silage enterprise')", null);
+			db.query("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('BN7', 'Beans Enterprise', 'Crop', 'Legume and bean crop enterprise')", null);
+			db.query("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GN8', 'Groundnuts Enterprise', 'Crop', 'Groundnut and peanut crop enterprise')", null);
+			db.query("INSERT OR IGNORE INTO enterprises (code, name, category, description) VALUES ('GEN', 'General Farm Overhead', 'General', 'Shared farm expenses and overheads')", null);
+		} catch (Exception ignored) {}
+	}
+
 	public static void ensureSchema(SQLiteDatabase db) {
 		if (db == null) return;
 

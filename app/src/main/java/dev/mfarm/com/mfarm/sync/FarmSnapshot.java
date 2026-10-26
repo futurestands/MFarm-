@@ -152,6 +152,31 @@ public final class FarmSnapshot {
             if (failed == 0) {
                 resolveAnimalLineageLinks(db, ordered);
                 dev.mfarm.com.mfarm.dao.BatchManager.recalculateAllBatchQuantities(new AndroidDatabaseAdapter(db));
+
+                // Record conflict audit trail if conflicts were present in merged snapshot
+                JSONArray conflicts = snapshot.optJSONArray("conflicts");
+                if (conflicts != null && conflicts.length() > 0) {
+                    for (int c = 0; c < conflicts.length(); c++) {
+                        JSONObject cObj = conflicts.getJSONObject(c);
+                        String uuid = cObj.optString("uuid");
+                        JSONObject losing = cObj.optJSONObject("losing");
+                        if (losing != null) {
+                            String tbl = losing.optString("table", "unknown");
+                            JSONObject fields = losing.optJSONObject("fields");
+                            String details = "LWW Conflict Resolved for UUID " + uuid + ": Preserved losing record fields = " + (fields != null ? fields.toString() : "{}");
+                            try {
+                                ContentValues auditCv = new ContentValues();
+                                auditCv.put("timestamp", System.currentTimeMillis());
+                                auditCv.put("action", "SYNC_CONFLICT_PRESERVED");
+                                auditCv.put("module", "SYNC");
+                                auditCv.put("entity_id", 0);
+                                auditCv.put("details", details);
+                                db.insert("audit_logs", null, auditCv);
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                }
+
                 db.setTransactionSuccessful();
             } else {
                 Log.e(TAG, "Restore transaction failed with " + failed + " error(s). Rolling back transaction.");

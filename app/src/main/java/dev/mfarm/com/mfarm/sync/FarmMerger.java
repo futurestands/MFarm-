@@ -28,8 +28,9 @@ public final class FarmMerger {
             throw new JSONException("This backup belongs to a different farm");
         }
         Map<String, JSONObject> byUuid = new LinkedHashMap<>();
-        ingest(byUuid, local.optJSONArray("records"));
-        ingest(byUuid, remote.optJSONArray("records"));
+        JSONArray conflictsArray = new JSONArray();
+        ingest(byUuid, local.optJSONArray("records"), conflictsArray);
+        ingest(byUuid, remote.optJSONArray("records"), conflictsArray);
 
         JSONObject out = new JSONObject();
         out.put("format", 1);
@@ -44,10 +45,11 @@ public final class FarmMerger {
             records.put(values.next());
         }
         out.put("records", records);
+        out.put("conflicts", conflictsArray);
         return out;
     }
 
-    private static void ingest(Map<String, JSONObject> map, JSONArray array) throws JSONException {
+    private static void ingest(Map<String, JSONObject> map, JSONArray array, JSONArray conflicts) throws JSONException {
         if (array == null) {
             return;
         }
@@ -58,7 +60,20 @@ public final class FarmMerger {
                 continue;
             }
             JSONObject existing = map.get(uuid);
-            if (existing == null || rec.optLong("updatedAt") >= existing.optLong("updatedAt")) {
+            if (existing != null) {
+                // Same record modified concurrently on both devices
+                long existingTime = existing.optLong("updatedAt", 0);
+                long recTime = rec.optLong("updatedAt", 0);
+                JSONObject winning = recTime >= existingTime ? rec : existing;
+                JSONObject losing = recTime >= existingTime ? existing : rec;
+                map.put(uuid, winning);
+
+                JSONObject conflictEntry = new JSONObject();
+                conflictEntry.put("uuid", uuid);
+                conflictEntry.put("winning", winning);
+                conflictEntry.put("losing", losing);
+                conflicts.put(conflictEntry);
+            } else {
                 map.put(uuid, rec);
             }
         }
