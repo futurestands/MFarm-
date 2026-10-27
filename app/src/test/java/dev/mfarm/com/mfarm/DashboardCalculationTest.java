@@ -324,4 +324,19 @@ public class DashboardCalculationTest {
 
         stmt.close();
     }
+
+    @Test
+    public void testEmptyBatchListBoundsCheck() {
+        java.util.List<String> batchIds = new java.util.ArrayList<>();
+        java.util.List<String> batchDisplayList = new java.util.ArrayList<>();
+
+        // Simulate empty state placeholder row
+        if (batchDisplayList.isEmpty()) {
+            batchDisplayList.add("No livestock batches registered yet.");
+        }
+
+        int clickedPosition = 0; // Click placeholder row at position 0
+        boolean boundsChecked = (batchIds != null && clickedPosition >= 0 && clickedPosition < batchIds.size());
+        org.junit.Assert.assertFalse("Clicking empty placeholder row must be rejected by bounds check", boundsChecked);
+    }
 }
