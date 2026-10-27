@@ -37,6 +37,7 @@
             android:name=".RegisterActivity"
             android:label="@string/title_activity_register"
             android:parentActivityName=".MainActivity"
+            android:exported="true"
             android:theme="@style/AppTheme.NoActionBar">
             <meta-data
                 android:name="androidx.core.PARENT_ACTIVITY"
@@ -74,6 +75,7 @@
         <activity
             android:name=".IllnessActivity"
             android:label="@string/title_activity_illness"
+            android:exported="true"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
             android:name=".TreatmentActivity"
@@ -82,6 +84,7 @@
         <activity
             android:name=".ExpenseActivity"
             android:label="Expenses"
+            android:exported="true"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
             android:name=".ScheduleVaccinationActivity"
@@ -141,6 +144,7 @@
         <activity
             android:name=".IncomeActivity"
             android:label="Record Income"
+            android:exported="true"
             android:theme="@style/AppTheme.NoActionBar" />
 
         <activity
@@ -151,11 +155,13 @@
         <activity
             android:name=".DisposalActivity"
             android:label="Record Animal Disposal"
+            android:exported="true"
             android:theme="@style/AppTheme.NoActionBar" />
 
         <activity
             android:name=".CropManagementActivity"
             android:label="Crop Management"
+            android:exported="true"
             android:theme="@style/AppTheme.NoActionBar" />
 
         <activity
@@ -176,11 +182,13 @@
         <activity
             android:name=".BatchRegistrationActivity"
             android:label="Batch Registration"
+            android:exported="true"
             android:theme="@style/AppTheme.NoActionBar" />
 
         <activity
             android:name=".BatchListActivity"
             android:label="Batch &amp; Flock Manager"
+            android:exported="true"
             android:theme="@style/AppTheme.NoActionBar" />
 
         <activity
@@ -205,7 +213,7 @@
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="dev.mfarm.com.mfarm.fileprovider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

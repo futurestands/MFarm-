@@ -37,6 +37,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix ".uitest"
+            debuggable true
+        }
         release {
             minifyEnabled false
             shrinkResources false

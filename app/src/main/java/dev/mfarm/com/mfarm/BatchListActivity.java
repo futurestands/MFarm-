@@ -100,8 +100,9 @@ public class BatchListActivity extends AppCompatActivity {
         }
         if (cursor != null) cursor.close();
 
-        if (batchDisplayList.isEmpty()) {
-            batchDisplayList.add("No livestock batches registered yet.\nTap '+' to register a batch (e.g. 500 chicks).");
+        View tvEmpty = findViewById(R.id.tvEmptyBatches);
+        if (tvEmpty != null) {
+            lvBatches.setEmptyView(tvEmpty);
         }
 
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, batchDisplayList);

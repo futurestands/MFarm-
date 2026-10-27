@@ -33,6 +33,17 @@
             android:textSize="15sp"
             android:layout_marginBottom="12dp" />
 
+        <TextView
+            android:id="@+id/tvEmptyBatches"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="No livestock batches registered yet.\nTap '+' to register a batch (e.g. 500 chicks)."
+            android:textColor="#666666"
+            android:textSize="14sp"
+            android:padding="16dp"
+            android:gravity="center"
+            android:visibility="gone" />
+
         <ListView
             android:id="@+id/lvBatches"
             android:layout_width="match_parent"
