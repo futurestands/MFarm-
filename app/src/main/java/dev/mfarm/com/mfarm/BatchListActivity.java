@@ -62,7 +62,9 @@ public class BatchListActivity extends AppCompatActivity {
         lvBatches.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                showBatchActionDialog(batchIds.get(position));
+                if (batchIds != null && position >= 0 && position < batchIds.size()) {
+                    showBatchActionDialog(batchIds.get(position));
+                }
             }
         });
 
