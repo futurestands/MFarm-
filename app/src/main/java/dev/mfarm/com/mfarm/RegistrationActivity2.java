@@ -59,14 +59,14 @@ public class RegistrationActivity2 extends AppCompatActivity {
         btndem.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showInputDialog("Dam ID", true);
+                showInputDialog("Dam Details", true);
             }
         });
 
         btnSire.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showInputDialog("Sire ID", false);
+                showInputDialog("Sire Details", false);
             }
         });
 
@@ -97,20 +97,38 @@ public class RegistrationActivity2 extends AppCompatActivity {
         alertDialogBuilder.setTitle(title);
 
         final EditText edtdamId = promptView.findViewById(R.id.edtdamId);
-        edtdamId.setHint(title);
+        final EditText edtparentbreed = promptView.findViewById(R.id.edtparentbreed);
+        final EditText edtbreedpercentage = promptView.findViewById(R.id.edtbreedpercentage);
+
+        edtdamId.setHint(isDam ? "Dam ID or Tag Number" : "Sire ID or Tag Number");
 
         alertDialogBuilder.setCancelable(false)
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        String val = edtdamId.getText().toString().trim();
+                        String idVal = edtdamId.getText().toString().trim();
+                        String breedVal = edtparentbreed != null ? edtparentbreed.getText().toString().trim() : "";
+                        String pctVal = edtbreedpercentage != null ? edtbreedpercentage.getText().toString().trim() : "";
+
+                        StringBuilder fullDetail = new StringBuilder(idVal.isEmpty() ? "N/A" : idVal);
+                        if (!breedVal.isEmpty()) {
+                            fullDetail.append(" (").append(breedVal);
+                            if (!pctVal.isEmpty()) {
+                                fullDetail.append(" ").append(pctVal).append("%");
+                            }
+                            fullDetail.append(")");
+                        } else if (!pctVal.isEmpty()) {
+                            fullDetail.append(" (").append(pctVal).append("%)");
+                        }
+
+                        String resultVal = fullDetail.toString();
                         if (isDam) {
-                            damId = val;
-                            GlobalVariables.dam_id = val;
-                            btndem.setText("Dam ID: " + val);
+                            damId = resultVal;
+                            GlobalVariables.dam_id = resultVal;
+                            btndem.setText("Dam: " + resultVal);
                         } else {
-                            sireId = val;
-                            GlobalVariables.sire_id = val;
-                            btnSire.setText("Sire ID: " + val);
+                            sireId = resultVal;
+                            GlobalVariables.sire_id = resultVal;
+                            btnSire.setText("Sire: " + resultVal);
                         }
                     }
                 })

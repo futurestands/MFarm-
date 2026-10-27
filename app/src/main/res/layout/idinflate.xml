@@ -4,69 +4,86 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="10dp">
+    android:padding="12dp">
 
     <ImageView
         android:id="@+id/btnnew"
-        android:layout_width="150dp"
-        android:layout_marginTop="0dp"
-        android:layout_weight="2"
+        android:layout_width="120dp"
+        android:layout_height="80dp"
         android:layout_gravity="center_horizontal"
-        android:layout_marginLeft="15dp"
-        android:layout_height="100dp"
-        android:src="@drawable/milk"
-        />
+        android:layout_marginBottom="8dp"
+        android:src="@drawable/milk" />
 
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til2"
-        android:layout_below="@+id/til1"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content">
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6dp">
         <EditText
             android:id="@+id/edtdamId"
-            android:layout_width="fill_parent"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="textEmailAddress"
-            android:hint="Dam Id"/>
+            android:inputType="text"
+            android:hint="Dam / Sire ID or Tag"/>
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til3"
-        android:layout_below="@+id/til1"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content">
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6dp">
+        <EditText
+            android:id="@+id/edtparentbreed"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text"
+            android:hint="Parent Breed (e.g. Friesian, Ayrshire, Ankole)"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6dp">
+        <EditText
+            android:id="@+id/edtbreedpercentage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="numberDecimal"
+            android:hint="Breed Purity % (e.g. 75, 87.5, 100)"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6dp">
         <EditText
             android:id="@+id/edtgranddam"
-            android:layout_width="fill_parent"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="textEmailAddress"
-            android:hint="Grand Dam Id"/>
+            android:inputType="text"
+            android:hint="Grand Dam ID"/>
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til4"
-        android:layout_below="@+id/til3"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content">
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6dp">
         <EditText
             android:id="@+id/edtgrandsireid"
-            android:layout_width="fill_parent"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="textEmailAddress"
-            android:hint="Grand Sire Id"/>
+            android:inputType="text"
+            android:hint="Grand Sire ID"/>
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til5"
-        android:layout_below="@+id/til4"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content">
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6dp">
         <EditText
             android:id="@+id/edtdamcalvingweight"
-            android:layout_width="fill_parent"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="textEmailAddress"
-            android:hint="Dam Calving/Lambing Weight"/>
+            android:inputType="numberDecimal"
+            android:hint="Dam Calving/Lambing Weight (Kg)"/>
     </com.google.android.material.textfield.TextInputLayout>
 
 </LinearLayout>
