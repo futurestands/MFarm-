@@ -6,6 +6,7 @@ import android.database.Cursor;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.DatePicker;
@@ -17,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -27,13 +29,16 @@ import java.util.Locale;
 import java.util.Map;
 
 import dev.mfarm.com.mfarm.dao.AndroidDatabaseAdapter;
+import dev.mfarm.com.mfarm.dao.CategoryManager;
 import dev.mfarm.com.mfarm.dao.DatabaseAdapter;
 import dev.mfarm.com.mfarm.dao.DatabaseHelper;
 
 public class CropManagementActivity extends AppCompatActivity {
 
     private Spinner spinnerCropType, spinnerActivityType;
-    private TextInputEditText etPlotName, etInputsUsed, etQuantity, etCost, etYieldHarvested, etNotes;
+    private View layoutCustomCrop;
+    private TextInputLayout tilInputsUsed, tilQuantity, tilCost, tilYieldHarvested;
+    private TextInputEditText etCustomCrop, etPlotName, etInputsUsed, etQuantity, etCost, etYieldHarvested, etNotes;
     private Button btnDate, btnSaveActivity;
     private ListView lvCropActivities;
 
@@ -56,6 +61,14 @@ public class CropManagementActivity extends AppCompatActivity {
 
         spinnerCropType = findViewById(R.id.spinnerCropType);
         spinnerActivityType = findViewById(R.id.spinnerActivityType);
+        layoutCustomCrop = findViewById(R.id.layoutCustomCrop);
+        etCustomCrop = findViewById(R.id.etCustomCrop);
+
+        tilInputsUsed = findViewById(R.id.tilInputsUsed);
+        tilQuantity = findViewById(R.id.tilQuantity);
+        tilCost = findViewById(R.id.tilCost);
+        tilYieldHarvested = findViewById(R.id.tilYieldHarvested);
+
         etPlotName = findViewById(R.id.etPlotName);
         etInputsUsed = findViewById(R.id.etInputsUsed);
         etQuantity = findViewById(R.id.etQuantity);
@@ -73,7 +86,7 @@ public class CropManagementActivity extends AppCompatActivity {
         btnDate.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                new DatePickerDialog(CropManagementActivity.this, new DatePickerDialog.OnDateSetListener() {
+                DatePickerDialog dpd = new DatePickerDialog(CropManagementActivity.this, R.style.GreenDatePickerTheme, new DatePickerDialog.OnDateSetListener() {
                     @Override
                     public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
                         calendar.set(Calendar.YEAR, year);
@@ -81,7 +94,10 @@ public class CropManagementActivity extends AppCompatActivity {
                         calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth);
                         updateDateButton();
                     }
-                }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show();
+                }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
+
+                dpd.getDatePicker().setMaxDate(System.currentTimeMillis());
+                dpd.show();
             }
         });
 
@@ -94,19 +110,119 @@ public class CropManagementActivity extends AppCompatActivity {
     }
 
     private void updateDateButton() {
-        btnDate.setText(dateFormatter.format(calendar.getTime()));
+        btnDate.setText("📅 Date: " + dateFormatter.format(calendar.getTime()));
     }
 
     private void setupSpinners() {
-        String[] crops = {"Coffee (CF3)", "Groundnuts", "Maize", "Beans", "Other Crops"};
+        android.database.sqlite.SQLiteDatabase db = DatabaseHelper.getDatabase(this);
+        DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
+        String[] defaultCrops = {"Coffee (CF3)", "Groundnuts", "Maize", "Beans"};
+        List<String> crops = CategoryManager.getCategories(adapterDb, "crop_types", "crop_name", defaultCrops);
+
         ArrayAdapter<String> cropAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, crops);
         cropAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerCropType.setAdapter(cropAdapter);
+
+        spinnerCropType.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                String cName = parent.getItemAtPosition(position).toString();
+                if (layoutCustomCrop != null) {
+                    if (CategoryManager.OTHER_SENTINEL.equals(cName)) {
+                        layoutCustomCrop.setVisibility(View.VISIBLE);
+                    } else {
+                        layoutCustomCrop.setVisibility(View.GONE);
+                    }
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
 
         String[] activities = {"Planting", "Fertilizing", "Spraying", "Weeding", "Labor", "Harvesting", "Crop Sale"};
         ArrayAdapter<String> actAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, activities);
         actAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerActivityType.setAdapter(actAdapter);
+
+        spinnerActivityType.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                String act = parent.getItemAtPosition(position).toString();
+                updateFieldVisibilitiesForActivity(act);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+    }
+
+    private void updateFieldVisibilitiesForActivity(String actType) {
+        if (tilInputsUsed == null || tilQuantity == null || tilCost == null || tilYieldHarvested == null) return;
+
+        if ("Harvesting".equalsIgnoreCase(actType)) {
+            // Harvesting: Hide inputs, show yield harvested and labor cost
+            tilInputsUsed.setVisibility(View.GONE);
+            tilQuantity.setVisibility(View.GONE);
+            tilCost.setVisibility(View.VISIBLE);
+            tilCost.setHint("Harvesting Labor / Transport Cost (UGX)");
+            tilYieldHarvested.setVisibility(View.VISIBLE);
+            tilYieldHarvested.setHint("Harvest Yield (Kg / Bags)");
+        } else if ("Weeding".equalsIgnoreCase(actType) || "Labor".equalsIgnoreCase(actType)) {
+            // Weeding / Labor: Hide harvest yield and quantity used
+            tilInputsUsed.setVisibility(View.VISIBLE);
+            tilInputsUsed.setHint("Labor / Equipment Used (Optional)");
+            tilQuantity.setVisibility(View.GONE);
+            tilCost.setVisibility(View.VISIBLE);
+            tilCost.setHint("Weeding / Labor Cost (UGX)");
+            tilYieldHarvested.setVisibility(View.GONE);
+        } else if ("Planting".equalsIgnoreCase(actType)) {
+            // Planting: Show seeds used, seed quantity, planting cost
+            tilInputsUsed.setVisibility(View.VISIBLE);
+            tilInputsUsed.setHint("Seed / Variety Used (e.g. Longe 5 Maize)");
+            tilQuantity.setVisibility(View.VISIBLE);
+            tilQuantity.setHint("Seed Quantity Used (Kg)");
+            tilCost.setVisibility(View.VISIBLE);
+            tilCost.setHint("Seed Cost / Planting Labor (UGX)");
+            tilYieldHarvested.setVisibility(View.GONE);
+        } else if ("Fertilizing".equalsIgnoreCase(actType)) {
+            // Fertilizing: Show fertilizer name, quantity, cost
+            tilInputsUsed.setVisibility(View.VISIBLE);
+            tilInputsUsed.setHint("Fertilizer / Manure Name (e.g. NPK)");
+            tilQuantity.setVisibility(View.VISIBLE);
+            tilQuantity.setHint("Fertilizer Quantity Used (Kg / Bags)");
+            tilCost.setVisibility(View.VISIBLE);
+            tilCost.setHint("Fertilizer Cost / Application Labor (UGX)");
+            tilYieldHarvested.setVisibility(View.GONE);
+        } else if ("Spraying".equalsIgnoreCase(actType)) {
+            // Spraying: Show chemical name, volume, cost
+            tilInputsUsed.setVisibility(View.VISIBLE);
+            tilInputsUsed.setHint("Pesticide / Fungicide Name");
+            tilQuantity.setVisibility(View.VISIBLE);
+            tilQuantity.setHint("Spray Volume / Quantity Used (L / ml)");
+            tilCost.setVisibility(View.VISIBLE);
+            tilCost.setHint("Chemical Cost / Spraying Labor (UGX)");
+            tilYieldHarvested.setVisibility(View.GONE);
+        } else if ("Crop Sale".equalsIgnoreCase(actType)) {
+            // Crop Sale: Show buyer name, quantity sold, sale revenue
+            tilInputsUsed.setVisibility(View.VISIBLE);
+            tilInputsUsed.setHint("Buyer / Market Name (Optional)");
+            tilQuantity.setVisibility(View.VISIBLE);
+            tilQuantity.setHint("Quantity Sold (Kg / Bags)");
+            tilCost.setVisibility(View.VISIBLE);
+            tilCost.setHint("Sale Revenue Received (UGX)");
+            tilYieldHarvested.setVisibility(View.GONE);
+        } else {
+            // Default / Other
+            tilInputsUsed.setVisibility(View.VISIBLE);
+            tilInputsUsed.setHint("Inputs / Materials Used");
+            tilQuantity.setVisibility(View.VISIBLE);
+            tilQuantity.setHint("Quantity Used");
+            tilCost.setVisibility(View.VISIBLE);
+            tilCost.setHint("Cost / Revenue (UGX)");
+            tilYieldHarvested.setVisibility(View.VISIBLE);
+            tilYieldHarvested.setHint("Harvest Yield (Kg)");
+        }
     }
 
     private void loadActivities() {
@@ -142,6 +258,15 @@ public class CropManagementActivity extends AppCompatActivity {
 
     private void saveCropActivity() {
         String cropType = spinnerCropType.getSelectedItem().toString();
+        if (CategoryManager.OTHER_SENTINEL.equals(cropType)) {
+            if (etCustomCrop != null && !etCustomCrop.getText().toString().trim().isEmpty()) {
+                cropType = etCustomCrop.getText().toString().trim();
+            } else {
+                Toast.makeText(this, "Please specify custom crop name", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+
         String actType = spinnerActivityType.getSelectedItem().toString();
         String plotName = etPlotName.getText().toString().trim();
         String inputs = etInputsUsed.getText().toString().trim();
@@ -151,15 +276,23 @@ public class CropManagementActivity extends AppCompatActivity {
         double cost = costStr.isEmpty() ? 0 : Double.parseDouble(costStr);
         String yieldStr = etYieldHarvested.getText().toString().trim();
         double yieldVal = yieldStr.isEmpty() ? 0 : Double.parseDouble(yieldStr);
-        String dateStr = btnDate.getText().toString();
+        String dateStr = dateFormatter.format(calendar.getTime());
         String notes = etNotes.getText().toString().trim();
 
         android.database.sqlite.SQLiteDatabase db = DatabaseHelper.getDatabase(this);
-        if (db == null) return;
+        if (db == null || !db.isOpen()) {
+            Toast.makeText(this, "Database unavailable", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-        DatabaseAdapter adapter = new AndroidDatabaseAdapter(db);
-        adapter.beginTransaction();
+        boolean success = false;
+        String errorMessage = null;
+
+        db.beginTransaction();
         try {
+            DatabaseAdapter adapterDb = new AndroidDatabaseAdapter(db);
+            CategoryManager.addCategory(adapterDb, "crop_types", "crop_name", cropType);
+
             Map<String, Object> actVal = new HashMap<>();
             actVal.put("activity_type", actType + " (" + cropType + ")");
             actVal.put("activity_date", dateStr);
@@ -169,9 +302,12 @@ public class CropManagementActivity extends AppCompatActivity {
             actVal.put("yield_harvested", yieldVal);
             actVal.put("notes", notes);
 
-            long rowId = adapter.insert("crop_activities", null, actVal);
+            long rowId = adapterDb.insert("crop_activities", null, actVal);
+            if (rowId == -1) {
+                throw new RuntimeException("Failed to insert crop activity record");
+            }
 
-            // Log Expense if cost > 0
+            // Log Expense if cost > 0 and not a Crop Sale
             if (cost > 0 && !"Crop Sale".equalsIgnoreCase(actType)) {
                 Map<String, Object> expVal = new HashMap<>();
                 expVal.put("category", "Crop Inputs & Labor");
@@ -179,7 +315,7 @@ public class CropManagementActivity extends AppCompatActivity {
                 expVal.put("date", dateStr);
                 expVal.put("description", actType + " for " + cropType + (plotName.isEmpty() ? "" : " (" + plotName + ")"));
                 expVal.put("project_code", resolveEnterpriseCode(cropType));
-                adapter.insert("expenses", null, expVal);
+                adapterDb.insert("expenses", null, expVal);
             }
 
             // Log Income if Crop Sale
@@ -190,12 +326,19 @@ public class CropManagementActivity extends AppCompatActivity {
                 incVal.put("date", dateStr);
                 incVal.put("description", "Sale of " + cropType + (yieldVal > 0 ? " (" + yieldVal + " kg)" : ""));
                 incVal.put("project_code", resolveEnterpriseCode(cropType));
-                adapter.insert("income", null, incVal);
+                adapterDb.insert("income", null, incVal);
             }
 
-            adapter.setTransactionSuccessful();
+            db.setTransactionSuccessful();
             DatabaseHelper.logAudit(db, "RECORD_CROP_ACTIVITY", "CROPS", rowId, actType + " recorded for " + cropType);
+            success = true;
+        } catch (Exception e) {
+            errorMessage = e.getMessage();
+        } finally {
+            db.endTransaction();
+        }
 
+        if (success) {
             Toast.makeText(this, "Crop Activity Saved Successfully", Toast.LENGTH_SHORT).show();
             etInputsUsed.setText("");
             etQuantity.setText("");
@@ -204,10 +347,8 @@ public class CropManagementActivity extends AppCompatActivity {
             etNotes.setText("");
 
             loadActivities();
-        } catch (Exception e) {
-            Toast.makeText(this, "Error saving activity: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        } finally {
-            adapter.endTransaction();
+        } else {
+            Toast.makeText(this, "Error saving activity: " + (errorMessage != null ? errorMessage : "Transaction failed"), Toast.LENGTH_LONG).show();
         }
     }
 
