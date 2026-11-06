@@ -15,11 +15,9 @@ MFarm connects an offline-first Android native application (`dev.mfarm.com.mfarm
 
 ---
 
-## 2. POSTGRESQL MULTI-TENANT SCHEMA DRAFT
+## 2. POSTGRESQL MULTI-TENANT SCHEMA DRAFT (001_initial_schema.sql)
 
 ```sql
--- PostgreSQL DDL Migration Draft (001_initial_schema.sql)
-
 -- ---------------------------------------------------------------------------------
 -- 1. TENANCY & USERS
 -- ---------------------------------------------------------------------------------
@@ -65,6 +63,7 @@ CREATE TABLE livestock (
     dam_id UUID REFERENCES livestock(id),
     status VARCHAR(50) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'SOLD', 'DECEASED')),
     notes TEXT,
+    server_revision BIGINT GENERATED ALWAYS AS IDENTITY,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
@@ -79,6 +78,7 @@ CREATE TABLE livestock_batches (
     housing_unit VARCHAR(100),
     arrival_date DATE,
     status VARCHAR(50) DEFAULT 'ACTIVE',
+    server_revision BIGINT GENERATED ALWAYS AS IDENTITY,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
@@ -93,6 +93,7 @@ CREATE TABLE vaccinations (
     completed BOOLEAN DEFAULT FALSE,
     completed_date DATE,
     performed_by UUID REFERENCES users(id),
+    server_revision BIGINT GENERATED ALWAYS AS IDENTITY,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -104,7 +105,8 @@ CREATE TABLE crop_fields (
     id UUID PRIMARY KEY,
     farm_id UUID NOT NULL REFERENCES farms(id),
     field_name VARCHAR(100) NOT NULL,
-    area_acres NUMERIC(8, 2) NOT NULL
+    area_acres NUMERIC(8, 2) NOT NULL,
+    server_revision BIGINT GENERATED ALWAYS AS IDENTITY
 );
 
 CREATE TABLE crop_enterprises (
@@ -115,6 +117,7 @@ CREATE TABLE crop_enterprises (
     planting_date DATE NOT NULL,
     expected_harvest_date DATE,
     status VARCHAR(50) DEFAULT 'PLANTED',
+    server_revision BIGINT GENERATED ALWAYS AS IDENTITY,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
@@ -128,6 +131,7 @@ CREATE TABLE crop_activities (
     cost NUMERIC(12, 2) DEFAULT 0.00,
     yield_quantity NUMERIC(12, 2),
     notes TEXT,
+    server_revision BIGINT GENERATED ALWAYS AS IDENTITY,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -146,6 +150,7 @@ CREATE TABLE financial_ledgers (
     is_reversed BOOLEAN DEFAULT FALSE,
     reversal_reference_id UUID REFERENCES financial_ledgers(id),
     created_by UUID REFERENCES users(id),
+    server_revision BIGINT GENERATED ALWAYS AS IDENTITY,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -162,6 +167,7 @@ CREATE TABLE inventory_items (
     quantity NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     unit VARCHAR(50) NOT NULL,
     reorder_threshold NUMERIC(12, 2) DEFAULT 0.00,
+    server_revision BIGINT GENERATED ALWAYS AS IDENTITY,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
@@ -173,11 +179,12 @@ CREATE TABLE inventory_transactions (
     transaction_type VARCHAR(50) CHECK (transaction_type IN ('RECEIPT', 'USAGE', 'ADJUSTMENT', 'REVERSAL')),
     quantity NUMERIC(12, 2) NOT NULL,
     reference_id UUID,
+    server_revision BIGINT GENERATED ALWAYS AS IDENTITY,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ---------------------------------------------------------------------------------
--- 6. AUDIT LOGS & SYNCHRONIZATION TOMBSTONES
+-- 6. AUDIT LOGS, IDEMPOTENCY PERSISTENCE & TOMBSTONES
 -- ---------------------------------------------------------------------------------
 
 CREATE TABLE audit_logs (
@@ -191,6 +198,15 @@ CREATE TABLE audit_logs (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE idempotency_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    farm_id UUID NOT NULL REFERENCES farms(id),
+    idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+    response_payload JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '24 hours')
+);
+
 CREATE TABLE sync_tombstones (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID NOT NULL REFERENCES farms(id),
@@ -202,7 +218,30 @@ CREATE TABLE sync_tombstones (
 
 ---
 
-## 3. BIDIRECTIONAL SYNCHRONIZATION PROTOCOL
+## 3. MIGRATION ROLLBACK PROCEDURES (001_initial_schema.down.sql)
+
+```sql
+-- Disaster Recovery Rollback Script
+DROP TABLE IF EXISTS sync_tombstones CASCADE;
+DROP TABLE IF EXISTS idempotency_keys CASCADE;
+DROP TABLE IF EXISTS audit_logs CASCADE;
+DROP TABLE IF EXISTS inventory_transactions CASCADE;
+DROP TABLE IF EXISTS inventory_items CASCADE;
+DROP TABLE IF EXISTS financial_ledgers CASCADE;
+DROP TABLE IF EXISTS crop_activities CASCADE;
+DROP TABLE IF EXISTS crop_enterprises CASCADE;
+DROP TABLE IF EXISTS crop_fields CASCADE;
+DROP TABLE IF EXISTS vaccinations CASCADE;
+DROP TABLE IF EXISTS livestock_batches CASCADE;
+DROP TABLE IF EXISTS livestock CASCADE;
+DROP TABLE IF EXISTS farm_members CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS farms CASCADE;
+```
+
+---
+
+## 4. BIDIRECTIONAL SYNCHRONIZATION PROTOCOL
 
 ```
   Android Client (Room/SQLite)                   Backend REST API (PostgreSQL)
@@ -213,24 +252,23 @@ CREATE TABLE sync_tombstones (
              |      Body: { mutations: [ ... ] }               |
              |------------------------------------------------>|
              |                                                 | -- Verify Farm Membership & Role
-             |                                                 | -- Deduplicate via Idempotency-Key
-             |                                                 | -- Apply Append-Only Ledgers
-             |                                                 | -- Update Timestamps
+             |                                                 | -- Check idempotency_keys table for replay
+             |                                                 | -- Apply Append-Only Ledgers & Server Revisions
              |   2. 200 OK                                     |
-             |      { processed: [...], server_time: TS }      |
+             |      { processed: [...], max_revision: REV }    |
              |<------------------------------------------------|
              |                                                 |
              |   3. GET /api/v1/sync/pull                      |
-             |      ?last_sync_timestamp=TS                    |
+             |      ?since_revision=REV                        |
              |------------------------------------------------>|
-             |                                                 | -- Query rows WHERE updated_at > TS
+             |                                                 | -- Query rows WHERE server_revision > REV
              |   4. 200 OK                                     |
              |      { delta: [...], tombstones: [...] }        |
              |<------------------------------------------------|
-             |                                                 |
 ```
 
-### Sync Safeguards
+### Sync Safeguards & Policies
 1. **Explicit User Opt-In:** The mobile app displays an explicit confirmation dialog before initial cloud connection. Local SQLite records are never transmitted without user authorization.
-2. **Server Watermarks:** Each pull query returns `server_time`, which the client saves locally as its next `last_sync_timestamp`.
-3. **Conflict Arbitration:** Entity attribute conflicts (e.g. animal tag or breed updates) favor the record with the higher `updated_at` server timestamp. Financial ledgers ignore timestamp overrides and execute append-only additions.
+2. **Monotonic Change Cursors (`server_revision`):** Eliminates clock-skew issues by assigning monotonic sequence IDs to every server mutation.
+3. **Tombstone Retention & Purge Policy:** Deleted records populate `sync_tombstones` and are retained for **90 days** before a background cron purges expired tombstones.
+4. **Idempotency Persistence:** The `idempotency_keys` table caches push batch results for 24 hours, preventing duplicate ledger entries during unstable network retries.
