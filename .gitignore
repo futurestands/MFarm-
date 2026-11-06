@@ -18,6 +18,6 @@ app/build/
 *.aab
 release-output/
 
-keystore/
-*.jks
-*.keystore
+# Web workspace
+web/node_modules/
+web/dist/
