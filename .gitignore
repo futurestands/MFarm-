@@ -1,23 +1,12 @@
-*.iml
-.gradle
-/local.properties
-/.idea/workspace.xml
-/.idea/libraries
-.DS_Store
-/build
-/captures
-keystore.properties
-keystore/
-*.jks
-*.keystore
-local.properties
-.gradle/
-build/
-app/build/
-*.apk
-*.aab
-release-output/
-
-# Web workspace
+# Node & Backend
+node_modules/
+backend/server/node_modules/
 web/node_modules/
-web/dist/
+dist/
+build/
+.env
+*.env
+.idea/
+.artifacts/
+*.log
+.DS_Store

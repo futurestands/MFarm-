@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  mfarm-api:
+    build: ./server
+    container_name: mfarm-api-server
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4001:4000"
+    environment:
+      - DB_HOST=mfarm-val-postgres-16
+      - DB_PORT=5432
+      - DB_NAME=mfarm_val_db
+      - DB_USER=mfarm_app_user
+      - DB_PASSWORD=env_injected_secure_password
+      - PORT=4000
+      - WEB_ORIGIN=http://localhost:3001
+    networks:
+      - mfarm-val-net
+
+networks:
+  mfarm-val-net:
+    external: true

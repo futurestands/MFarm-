@@ -1,17 +1,40 @@
 import React, { useState } from 'react';
-import { Sprout, Lock, Mail, ArrowRight } from 'lucide-react';
+import { Sprout, Lock, Mail, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 
 interface LoginPageProps {
-  onLoginSuccess: (email: string) => void;
+  onLoginSuccess: (token: string, email: string) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('mugarura@mfarm.dev');
   const [password, setPassword] = useState('demo1234');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLoginSuccess(email);
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:4000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Authentication failed against MFarm API');
+      }
+
+      const data = await response.json();
+      setIsLoading(false);
+      onLoginSuccess(data.token, data.email);
+    } catch (err: any) {
+      setIsLoading(false);
+      setError(err.message || 'Unable to connect to MFarm backend API');
+    }
   };
 
   return (
@@ -23,13 +46,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <Sprout className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-bold">MFarm Platform</h1>
-          <p className="text-emerald-200 text-sm mt-1">Integrated Farm Management Hub</p>
+          <p className="text-emerald-200 text-sm mt-1">PostgreSQL Authenticated Backend</p>
         </div>
 
-        {/* Demo Warning Banner */}
-        <div className="bg-amber-50 border-b border-amber-200 p-3 text-center text-xs text-amber-800 font-medium">
-          [DEMO MODE] Enter any email and password to access the test interface.
-        </div>
+        {error && (
+          <div className="bg-red-50 border-b border-red-200 p-3 text-center text-xs text-red-800 font-medium flex items-center justify-center space-x-1">
+            <AlertCircle className="w-4 h-4 text-red-600" />
+            <span>{error}</span>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -67,10 +92,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
           <button
             type="submit"
-            className="w-full bg-emerald-800 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center space-x-2 transition shadow-md"
+            disabled={isLoading}
+            className="w-full bg-emerald-800 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center space-x-2 transition shadow-md disabled:opacity-50"
           >
-            <span>Sign In to MFarm</span>
-            <ArrowRight className="w-4 h-4" />
+            {isLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                <span>Sign In to MFarm API</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
       </div>
