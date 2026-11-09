@@ -47,9 +47,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             Real-time analytics and management summary for <span className="font-semibold text-emerald-800">{farm.name}</span>
           </p>
         </div>
-        <div className="mt-2 sm:mt-0 text-xs bg-emerald-100 text-emerald-900 border border-emerald-300 font-semibold px-3 py-1.5 rounded-lg inline-block">
-          [LIVE DATABASE]
-        </div>
       </div>
 
       {/* Metric Cards */}

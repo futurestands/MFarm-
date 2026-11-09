@@ -37,16 +37,12 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD
 });
 
-// Helper: Hash password with salt for verification
+// Helper: Hash password with salt for verification (Strict PBKDF2 enforcement)
 function verifyPassword(password, storedHash) {
-  // If storedHash is simple demo hash or pbkdf2 format "salt:hash"
-  if (!storedHash) return false;
-  if (storedHash === 'hash' || storedHash === 'secret_hash_a' || storedHash === 'demo1234') {
-    return password === 'demo1234' || password === 'secret' || password === 'hash' || password === 'secret_hash_a';
-  }
+  if (!storedHash || typeof storedHash !== 'string') return false;
   try {
     const parts = storedHash.split(':');
-    if (parts.length !== 2) return storedHash === password;
+    if (parts.length !== 2) return false;
     const [salt, originalHash] = parts;
     const hashVerify = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
     return hashVerify === originalHash;

@@ -41,8 +41,8 @@ export const FarmSelectorPage: React.FC<FarmSelectorPageProps> = ({
                     <MapPin className="w-3.5 h-3.5 mr-1" />
                     {farm.location}
                   </span>
-                  <span>Animals: {farm.animalCount}</span>
-                  <span>Crops: {farm.cropAcres} Acres</span>
+                  <span>Animals: {farm.animalCount !== undefined ? farm.animalCount : 0}</span>
+                  <span>Crops: {farm.cropAcres !== undefined ? farm.cropAcres : 0} Acres</span>
                 </div>
               </div>
 

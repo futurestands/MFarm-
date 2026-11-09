@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:4001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 export interface ApiClientConfig {
   token: string;
@@ -61,4 +61,18 @@ export async function fetchFinancials(config: ApiClientConfig) {
   }
   const data = await response.json();
   return data.financials;
+}
+
+export async function fetchInventory(config: ApiClientConfig) {
+  const response = await fetch(`${API_BASE_URL}/inventory`, {
+    headers: {
+      'Authorization': `Bearer ${config.token}`,
+      'x-farm-id': config.farmId
+    }
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch inventory from backend API');
+  }
+  const data = await response.json();
+  return data.inventory;
 }

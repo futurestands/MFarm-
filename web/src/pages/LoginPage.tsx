@@ -20,9 +20,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setError('');
 
     try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
       const endpoint = isRegistering
-        ? 'http://localhost:4001/api/auth/register'
-        : 'http://localhost:4001/api/auth/login';
+        ? `${API_BASE_URL}/auth/register`
+        : `${API_BASE_URL}/auth/login`;
 
       const payload = isRegistering
         ? { full_name: fullName, email, password, farm_name: farmName || undefined }

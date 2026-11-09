@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Farm, LivestockItem, FinancialItem } from './types';
-import { fetchFarms, fetchLivestock, fetchFinancials, createLivestock } from './services/api';
+import { Farm, LivestockItem, FinancialItem, InventoryItem } from './types';
+import { fetchFarms, fetchLivestock, fetchFinancials, fetchInventory, createLivestock } from './services/api';
 import { Header } from './components/Header';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { LoginPage } from './pages/LoginPage';
@@ -25,6 +25,7 @@ export default function App() {
 
   const [livestock, setLivestock] = useState<LivestockItem[]>([]);
   const [financials, setFinancials] = useState<FinancialItem[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
 
@@ -47,16 +48,17 @@ export default function App() {
     }
   }, [isAuthenticated, authToken]);
 
-  // Fetch real database records (livestock & financials) whenever activeFarm changes
+  // Fetch real database records (livestock, financials, inventory) whenever activeFarm changes
   useEffect(() => {
     if (isAuthenticated && authToken && activeFarm) {
       setIsLoading(true);
       const config = { token: authToken, farmId: activeFarm.id };
       Promise.all([
         fetchLivestock(config).catch(() => []),
-        fetchFinancials(config).catch(() => [])
+        fetchFinancials(config).catch(() => []),
+        fetchInventory(config).catch(() => [])
       ])
-        .then(([fetchedLivestock, fetchedFinancials]) => {
+        .then(([fetchedLivestock, fetchedFinancials, fetchedInventory]) => {
           setLivestock(fetchedLivestock.map((item: any) => ({
             id: item.global_id,
             tag: item.tag,
@@ -67,12 +69,20 @@ export default function App() {
             status: item.status || 'ACTIVE'
           })));
           setFinancials(fetchedFinancials.map((item: any) => ({
-            id: item.global_id,
-            type: item.entry_type.toLowerCase(),
+            id: item.global_id || item.id,
+            type: (item.entry_type || 'EXPENSE').toUpperCase() as 'INCOME' | 'EXPENSE',
             category: item.category,
             amount: parseFloat(item.amount),
-            date: item.entry_date,
-            description: item.notes || ''
+            date: item.entry_date || item.date,
+            notes: item.notes || ''
+          })));
+          setInventory(fetchedInventory.map((item: any) => ({
+            id: item.id,
+            name: item.item_name,
+            category: item.category,
+            quantity: parseFloat(item.quantity || 0),
+            unit: item.unit || 'KG',
+            reorderThreshold: parseFloat(item.min_quantity || 10)
           })));
           setIsLoading(false);
         })
@@ -186,7 +196,7 @@ export default function App() {
               financials={financials}
               livestock={livestock}
               crops={[]}
-              inventory={[]}
+              inventory={inventory}
             />
           )}
 
@@ -205,7 +215,7 @@ export default function App() {
           )}
 
           {activeTab === 'inventory' && (
-            <InventoryPage inventory={[]} />
+            <InventoryPage inventory={inventory} />
           )}
 
           {activeTab === 'reports' && (
