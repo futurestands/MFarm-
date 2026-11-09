@@ -15,6 +15,9 @@ services:
       - DB_PASSWORD=env_injected_secure_password
       - PORT=4000
       - WEB_ORIGIN=http://localhost:3001
+    volumes:
+      - ./server:/app
+      - /app/node_modules
     networks:
       - mfarm-val-net
 

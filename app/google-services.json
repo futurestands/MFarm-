@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "626693722750",
+    "project_id": "mfarm-platform-prod",
+    "storage_bucket": "mfarm-platform-prod.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:626693722750:android:856e237cc933afd15d3e2f",
+        "android_client_info": {
+          "package_name": "dev.mfarm.com.mfarm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsj81-yOhA6b3vPUu3DymFozZpvtattk8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

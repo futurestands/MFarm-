@@ -314,9 +314,10 @@ app.post('/api/financials', withAuthenticatedClient, async (req, res) => {
     return res.status(400).json({ error: 'Missing entry_type, category, or amount' });
   }
   try {
+    const todayStr = new Date().toISOString().split('T')[0];
     const resId = await req.dbClient.query(
       'SELECT insert_financial_ledger($1, $2, $3, $4, $5, $6)',
-      [req.farmId, entry_type, category, amount, entry_date || null, notes || null]
+      [req.farmId, entry_type, category, amount, entry_date || todayStr, notes || null]
     );
     await req.dbClient.query('COMMIT');
     req.dbClient.release();
@@ -481,6 +482,109 @@ app.post('/api/inventory', withAuthenticatedClient, async (req, res) => {
     await req.dbClient.query('COMMIT');
     req.dbClient.release();
     res.status(201).json({ status: 'success', id: resId.rows[0].add_inventory_item });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Protected GET /api/crops
+app.get('/api/crops', withAuthenticatedClient, async (req, res) => {
+  try {
+    const result = await req.dbClient.query(
+      'SELECT id, crop_type, field_name, area_acres, planting_date, expected_harvest, status FROM crops WHERE farm_id = $1 ORDER BY planting_date DESC',
+      [req.farmId]
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.json({ crops: result.rows });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Protected POST /api/crops
+app.post('/api/crops', withAuthenticatedClient, async (req, res) => {
+  const { crop_type, field_name, area_acres, planting_date, expected_harvest } = req.body;
+  if (!crop_type || !field_name) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    return res.status(400).json({ error: 'Missing crop_type or field_name' });
+  }
+  try {
+    const resId = await req.dbClient.query(
+      'SELECT auth.add_crop_enterprise($1, $2, $3, $4, $5, $6)',
+      [req.farmId, crop_type, field_name, area_acres || 1, planting_date || null, expected_harvest || null]
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.status(201).json({ status: 'success', id: resId.rows[0].add_crop_enterprise });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Protected GET /api/farms/members
+app.get('/api/farms/members', withAuthenticatedClient, async (req, res) => {
+  try {
+    const result = await req.dbClient.query(
+      'SELECT * FROM auth.get_farm_members($1)',
+      [req.farmId]
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.json({ members: result.rows });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Protected POST /api/farms/members
+app.post('/api/farms/members', withAuthenticatedClient, async (req, res) => {
+  const { email, role } = req.body;
+  if (!email) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    return res.status(400).json({ error: 'Email is required' });
+  }
+  try {
+    const resId = await req.dbClient.query(
+      'SELECT auth.add_farm_member($1, $2, $3)',
+      [req.farmId, email, role || 'WORKER']
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.status(201).json({ status: 'success', user_id: resId.rows[0].add_farm_member });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(400).json({ error: err.message || 'Failed to add farm member' });
+  }
+});
+
+// Protected PUT /api/farms/members/role
+app.put('/api/farms/members/role', withAuthenticatedClient, async (req, res) => {
+  const { user_id, role } = req.body;
+  if (!user_id || !role) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    return res.status(400).json({ error: 'user_id and role are required' });
+  }
+  try {
+    await req.dbClient.query(
+      'SELECT auth.update_member_role($1, $2, $3)',
+      [req.farmId, user_id, role]
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.json({ status: 'success' });
   } catch (err) {
     await req.dbClient.query('ROLLBACK').catch(() => {});
     req.dbClient.release();

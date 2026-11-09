@@ -17,6 +17,13 @@ export interface UserProfile {
   assignedFarms: Farm[];
 }
 
+export interface FarmMember {
+  userId: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+}
+
 export interface LivestockItem {
   id: string;
   tag: string;

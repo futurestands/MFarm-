@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Farm, LivestockItem, FinancialItem, InventoryItem } from './types';
-import { fetchFarms, fetchLivestock, fetchFinancials, fetchInventory, createLivestock } from './services/api';
+import { Farm, LivestockItem, FinancialItem, InventoryItem, CropItem, FarmMember, UserRole } from './types';
+import {
+  fetchFarms,
+  fetchLivestock,
+  fetchFinancials,
+  fetchInventory,
+  createLivestock,
+  createFinancialEntry,
+  createInventoryItem,
+  fetchCrops,
+  createCrop,
+  fetchFarmMembers,
+  addFarmMember,
+  updateMemberRole
+} from './services/api';
 import { Header } from './components/Header';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { LoginPage } from './pages/LoginPage';
@@ -26,6 +39,9 @@ export default function App() {
   const [livestock, setLivestock] = useState<LivestockItem[]>([]);
   const [financials, setFinancials] = useState<FinancialItem[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [crops, setCrops] = useState<CropItem[]>([]);
+  const [members, setMembers] = useState<FarmMember[]>([]);
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
 
@@ -48,7 +64,7 @@ export default function App() {
     }
   }, [isAuthenticated, authToken]);
 
-  // Fetch real database records (livestock, financials, inventory) whenever activeFarm changes
+  // Fetch real database records (livestock, financials, inventory, crops, members) whenever activeFarm changes
   useEffect(() => {
     if (isAuthenticated && authToken && activeFarm) {
       setIsLoading(true);
@@ -56,9 +72,11 @@ export default function App() {
       Promise.all([
         fetchLivestock(config).catch(() => []),
         fetchFinancials(config).catch(() => []),
-        fetchInventory(config).catch(() => [])
+        fetchInventory(config).catch(() => []),
+        fetchCrops(config).catch(() => []),
+        fetchFarmMembers(config).catch(() => [])
       ])
-        .then(([fetchedLivestock, fetchedFinancials, fetchedInventory]) => {
+        .then(([fetchedLivestock, fetchedFinancials, fetchedInventory, fetchedCrops, fetchedMembers]) => {
           setLivestock(fetchedLivestock.map((item: any) => ({
             id: item.global_id,
             tag: item.tag,
@@ -84,6 +102,21 @@ export default function App() {
             unit: item.unit || 'KG',
             reorderThreshold: parseFloat(item.min_quantity || 10)
           })));
+          setCrops(fetchedCrops.map((item: any) => ({
+            id: item.id,
+            fieldName: item.field_name,
+            cropType: item.crop_type,
+            areaAcres: parseFloat(item.area_acres || 1),
+            plantingDate: item.planting_date || 'N/A',
+            status: item.status || 'GROWING',
+            expectedHarvest: item.expected_harvest || 'TBD'
+          })));
+          setMembers(fetchedMembers.map((item: any) => ({
+            userId: item.user_id,
+            email: item.email,
+            fullName: item.full_name || item.email,
+            role: item.role as UserRole
+          })));
           setIsLoading(false);
         })
         .catch((err) => {
@@ -98,7 +131,6 @@ export default function App() {
     try {
       setIsLoading(true);
       await createLivestock({ token: authToken, farmId: activeFarm.id }, { tag, species, breed, sex });
-      // Refresh livestock list
       const updated = await fetchLivestock({ token: authToken, farmId: activeFarm.id });
       setLivestock(updated.map((item: any) => ({
         id: item.global_id,
@@ -114,6 +146,94 @@ export default function App() {
       alert(err.message || 'Failed to create animal');
       setIsLoading(false);
     }
+  };
+
+  const handleRecordFinancialEntry = async (entry_type: string, category: string, amount: number, notes: string) => {
+    if (!activeFarm || !authToken) return;
+    try {
+      setIsLoading(true);
+      await createFinancialEntry({ token: authToken, farmId: activeFarm.id }, { entry_type, category, amount, notes });
+      const updated = await fetchFinancials({ token: authToken, farmId: activeFarm.id });
+      setFinancials(updated.map((item: any) => ({
+        id: item.global_id || item.id,
+        type: (item.entry_type || 'EXPENSE').toUpperCase() as 'INCOME' | 'EXPENSE',
+        category: item.category,
+        amount: parseFloat(item.amount),
+        date: item.entry_date || item.date,
+        notes: item.notes || ''
+      })));
+      setIsLoading(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to record financial entry');
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddStockItem = async (name: string, category: string, quantity: number, unit: string, minQuantity: number) => {
+    if (!activeFarm || !authToken) return;
+    try {
+      setIsLoading(true);
+      await createInventoryItem({ token: authToken, farmId: activeFarm.id }, { item_name: name, category, quantity, unit, min_quantity: minQuantity });
+      const updated = await fetchInventory({ token: authToken, farmId: activeFarm.id });
+      setInventory(updated.map((item: any) => ({
+        id: item.id,
+        name: item.item_name,
+        category: item.category,
+        quantity: parseFloat(item.quantity || 0),
+        unit: item.unit || 'KG',
+        reorderThreshold: parseFloat(item.min_quantity || 10)
+      })));
+      setIsLoading(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to add stock item');
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateCrop = async (cropType: string, fieldName: string, areaAcres: number, plantingDate: string, expectedHarvest: string) => {
+    if (!activeFarm || !authToken) return;
+    try {
+      setIsLoading(true);
+      await createCrop({ token: authToken, farmId: activeFarm.id }, { crop_type: cropType, field_name: fieldName, area_acres: areaAcres, planting_date: plantingDate, expected_harvest: expectedHarvest });
+      const updated = await fetchCrops({ token: authToken, farmId: activeFarm.id });
+      setCrops(updated.map((item: any) => ({
+        id: item.id,
+        fieldName: item.field_name,
+        cropType: item.crop_type,
+        areaAcres: parseFloat(item.area_acres || 1),
+        plantingDate: item.planting_date || 'N/A',
+        status: item.status || 'GROWING',
+        expectedHarvest: item.expected_harvest || 'TBD'
+      })));
+      setIsLoading(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to create crop enterprise');
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddFarmMember = async (email: string, role: UserRole) => {
+    if (!activeFarm || !authToken) return;
+    await addFarmMember({ token: authToken, farmId: activeFarm.id }, { email, role });
+    const updated = await fetchFarmMembers({ token: authToken, farmId: activeFarm.id });
+    setMembers(updated.map((item: any) => ({
+      userId: item.user_id,
+      email: item.email,
+      fullName: item.full_name || item.email,
+      role: item.role as UserRole
+    })));
+  };
+
+  const handleUpdateMemberRole = async (userId: string, role: UserRole) => {
+    if (!activeFarm || !authToken) return;
+    await updateMemberRole({ token: authToken, farmId: activeFarm.id }, { user_id: userId, role });
+    const updated = await fetchFarmMembers({ token: authToken, farmId: activeFarm.id });
+    setMembers(updated.map((item: any) => ({
+      userId: item.user_id,
+      email: item.email,
+      fullName: item.full_name || item.email,
+      role: item.role as UserRole
+    })));
   };
 
   if (!isAuthenticated) {
@@ -195,7 +315,7 @@ export default function App() {
               farm={activeFarm}
               financials={financials}
               livestock={livestock}
-              crops={[]}
+              crops={crops}
               inventory={inventory}
             />
           )}
@@ -208,21 +328,37 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'crops' && <CropsPage crops={[]} />}
+          {activeTab === 'crops' && (
+            <CropsPage crops={crops} onCreateCrop={handleCreateCrop} />
+          )}
 
           {activeTab === 'financials' && (
-            <FinancialsPage farm={activeFarm} financials={financials} />
+            <FinancialsPage
+              farm={activeFarm}
+              financials={financials}
+              onRecordEntry={handleRecordFinancialEntry}
+            />
           )}
 
           {activeTab === 'inventory' && (
-            <InventoryPage inventory={inventory} />
+            <InventoryPage
+              inventory={inventory}
+              onAddStockItem={handleAddStockItem}
+            />
           )}
 
           {activeTab === 'reports' && (
             <ReportsPage financials={financials} livestock={livestock} />
           )}
 
-          {activeTab === 'settings' && <SettingsPage currentFarm={activeFarm} />}
+          {activeTab === 'settings' && (
+            <SettingsPage
+              currentFarm={activeFarm}
+              members={members}
+              onAddMember={handleAddFarmMember}
+              onUpdateRole={handleUpdateMemberRole}
+            />
+          )}
         </main>
       </div>
     </div>

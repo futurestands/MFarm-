@@ -1,4 +1,6 @@
 apply plugin: 'com.android.application'
+apply plugin: 'com.google.gms.google-services'
+apply plugin: 'com.google.firebase.crashlytics'
 
 def keystorePropertiesFile = rootProject.file('keystore.properties')
 def keystoreProperties = new Properties()
@@ -39,7 +41,6 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix ".uitest"
             debuggable true
             manifestPlaceholders = [exportedForTesting: "true"]
         }
@@ -67,6 +68,12 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.cardview:cardview:1.0.0'
     implementation 'androidx.documentfile:documentfile:1.0.1'
+
+    // Firebase BoM & Core Services
+    implementation platform('com.google.firebase:firebase-bom:33.7.0')
+    implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-crashlytics'
+
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20231013'
     testImplementation 'org.xerial:sqlite-jdbc:3.42.0.0'

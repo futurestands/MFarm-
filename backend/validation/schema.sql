@@ -861,3 +861,93 @@ GRANT EXECUTE ON FUNCTION auth.add_health_record(UUID, VARCHAR, VARCHAR, VARCHAR
 GRANT EXECUTE ON FUNCTION auth.add_vaccination(UUID, VARCHAR, VARCHAR, DATE, TEXT) TO mfarm_app_user;
 GRANT EXECUTE ON FUNCTION auth.add_inventory_item(UUID, VARCHAR, VARCHAR, NUMERIC, VARCHAR, NUMERIC) TO mfarm_app_user;
 GRANT EXECUTE ON FUNCTION auth.record_stock_transaction(UUID, UUID, VARCHAR, NUMERIC, TEXT) TO mfarm_app_user;
+
+-- Crops Table & Helper Functions
+CREATE TABLE IF NOT EXISTS public.crops (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    farm_id UUID NOT NULL REFERENCES public.farms(id) ON DELETE CASCADE,
+    crop_type VARCHAR(100) NOT NULL,
+    field_name VARCHAR(100) NOT NULL,
+    area_acres NUMERIC(10,2) DEFAULT 1,
+    planting_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    expected_harvest DATE,
+    status VARCHAR(50) DEFAULT 'GROWING',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+GRANT SELECT ON public.crops TO mfarm_app_user;
+
+CREATE OR REPLACE FUNCTION auth.add_crop_enterprise(
+    p_farm_id UUID,
+    p_crop_type VARCHAR,
+    p_field_name VARCHAR,
+    p_area NUMERIC,
+    p_planting_date DATE,
+    p_expected_harvest DATE
+) RETURNS UUID AS $$
+DECLARE
+    v_id UUID;
+BEGIN
+    INSERT INTO public.crops (farm_id, crop_type, field_name, area_acres, planting_date, expected_harvest)
+    VALUES (p_farm_id, p_crop_type, p_field_name, COALESCE(p_area, 1), COALESCE(p_planting_date, CURRENT_DATE), p_expected_harvest)
+    RETURNING id INTO v_id;
+    RETURN v_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION auth.get_farm_members(p_farm_id UUID)
+RETURNS TABLE (
+    user_id UUID,
+    email VARCHAR,
+    full_name VARCHAR,
+    role VARCHAR
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT u.id AS user_id, u.email, u.full_name, fm.role
+    FROM public.farm_members fm
+    JOIN public.users u ON fm.user_id = u.id
+    WHERE fm.farm_id = p_farm_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION auth.add_farm_member(
+    p_farm_id UUID,
+    p_email VARCHAR,
+    p_role VARCHAR
+) RETURNS UUID AS $$
+DECLARE
+    v_user_id UUID;
+    v_target_role VARCHAR;
+BEGIN
+    v_target_role := COALESCE(p_role, 'WORKER');
+    SELECT id INTO v_user_id FROM public.users WHERE email = p_email;
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'User with email % not found.', p_email USING ERRCODE = 'P0002';
+    END IF;
+
+    INSERT INTO public.farm_members (farm_id, user_id, role)
+    VALUES (p_farm_id, v_user_id, v_target_role)
+    ON CONFLICT (farm_id, user_id) DO UPDATE SET role = EXCLUDED.role;
+
+    RETURN v_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION auth.update_member_role(
+    p_farm_id UUID,
+    p_user_id UUID,
+    p_role VARCHAR
+) RETURNS VOID AS $$
+BEGIN
+    UPDATE public.farm_members
+    SET role = p_role
+    WHERE farm_id = p_farm_id AND user_id = p_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+GRANT EXECUTE ON FUNCTION auth.add_crop_enterprise(UUID, VARCHAR, VARCHAR, NUMERIC, DATE, DATE) TO mfarm_app_user;
+GRANT EXECUTE ON FUNCTION auth.get_farm_members(UUID) TO mfarm_app_user;
+GRANT EXECUTE ON FUNCTION auth.add_farm_member(UUID, VARCHAR, VARCHAR) TO mfarm_app_user;
+GRANT EXECUTE ON FUNCTION auth.update_member_role(UUID, UUID, VARCHAR) TO mfarm_app_user;
+
