@@ -26,7 +26,7 @@ export const FinancialsPage: React.FC<FinancialsPageProps> = ({ farm, financials
       {/* Ledger Table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-4 bg-gray-50 border-b flex justify-between items-center text-xs text-gray-500 font-semibold">
-          <span>TRANSACTION LEDGER HISTORY [DEMO DATA]</span>
+          <span>TRANSACTION LEDGER HISTORY</span>
           <span>{financials.length} Entries Logged</span>
         </div>
 

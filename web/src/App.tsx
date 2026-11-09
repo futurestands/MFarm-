@@ -208,7 +208,9 @@ export default function App() {
             <InventoryPage inventory={[]} />
           )}
 
-          {activeTab === 'reports' && <ReportsPage />}
+          {activeTab === 'reports' && (
+            <ReportsPage financials={financials} livestock={livestock} />
+          )}
 
           {activeTab === 'settings' && <SettingsPage currentFarm={activeFarm} />}
         </main>

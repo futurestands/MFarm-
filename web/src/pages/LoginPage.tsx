@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { Sprout, Lock, Mail, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { Sprout, Lock, Mail, User, Building, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 
 interface LoginPageProps {
   onLoginSuccess: (token: string, email: string) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const [email, setEmail] = useState('mugarura@mfarm.dev');
-  const [password, setPassword] = useState('demo1234');
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [farmName, setFarmName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -17,15 +20,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:4000/api/auth/login', {
+      const endpoint = isRegistering
+        ? 'http://localhost:4001/api/auth/register'
+        : 'http://localhost:4001/api/auth/login';
+
+      const payload = isRegistering
+        ? { full_name: fullName, email, password, farm_name: farmName || undefined }
+        : { email, password };
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Authentication failed against MFarm API');
+        throw new Error(errData.error || (isRegistering ? 'Registration failed' : 'Authentication failed against MFarm API'));
       }
 
       const data = await response.json();
@@ -46,18 +57,39 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <Sprout className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-bold">MFarm Platform</h1>
-          <p className="text-emerald-200 text-sm mt-1">PostgreSQL Authenticated Backend</p>
+          <p className="text-emerald-200 text-sm mt-1">
+            {isRegistering ? 'Create Your Farm Account' : 'PostgreSQL Authenticated Backend'}
+          </p>
         </div>
 
         {error && (
           <div className="bg-red-50 border-b border-red-200 p-3 text-center text-xs text-red-800 font-medium flex items-center justify-center space-x-1">
-            <AlertCircle className="w-4 h-4 text-red-600" />
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {isRegistering && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                Full Name
+              </label>
+              <div className="relative">
+                <User className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. John Mugarura"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                />
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
               Email Address
@@ -67,6 +99,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <input
                 type="email"
                 required
+                placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
@@ -76,19 +109,39 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
           <div>
             <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-              Password
+              Password {isRegistering && <span className="text-gray-400 font-normal">(min 6 chars)</span>}
             </label>
             <div className="relative">
               <Lock className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
               <input
                 type="password"
                 required
+                minLength={6}
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
               />
             </div>
           </div>
+
+          {isRegistering && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                Farm Name <span className="text-gray-400 font-normal">(Optional)</span>
+              </label>
+              <div className="relative">
+                <Building className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="e.g. Kazinga Farm"
+                  value={farmName}
+                  onChange={(e) => setFarmName(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                />
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"
@@ -99,11 +152,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>
-                <span>Sign In to MFarm API</span>
+                <span>{isRegistering ? 'Register & Create Farm' : 'Sign In to MFarm API'}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
+
+          <div className="text-center pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsRegistering(!isRegistering);
+                setError('');
+              }}
+              className="text-xs text-emerald-700 hover:text-emerald-900 font-medium transition"
+            >
+              {isRegistering
+                ? 'Already have an account? Sign in here'
+                : "Don't have an account? Register a new farm"}
+            </button>
+          </div>
         </form>
       </div>
     </div>

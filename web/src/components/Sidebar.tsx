@@ -90,10 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </nav>
 
-        <div className="absolute bottom-4 left-4 right-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-          <p className="font-bold mb-1">Demonstration Mode</p>
-          <p>All records presented on this interface are synthetic test samples.</p>
-        </div>
+
       </aside>
     </>
   );

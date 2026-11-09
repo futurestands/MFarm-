@@ -18,7 +18,7 @@ export const FarmSelectorPage: React.FC<FarmSelectorPageProps> = ({
           <Building2 className="w-12 h-12 mx-auto text-emerald-800 mb-2" />
           <h2 className="text-2xl font-bold text-gray-900">Select Active Farm</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Choose a farm workspace assigned to your account [DEMO MODE]
+            Choose a farm workspace assigned to your account
           </p>
         </div>
 

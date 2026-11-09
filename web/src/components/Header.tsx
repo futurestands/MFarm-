@@ -25,9 +25,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div>
             <span className="font-bold text-xl tracking-tight">MFarm</span>
-            <span className="ml-2 text-xs bg-emerald-700 px-2 py-0.5 rounded font-mono text-emerald-200">
-              [DEMO MODE]
-            </span>
           </div>
         </div>
 

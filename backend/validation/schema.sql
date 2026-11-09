@@ -525,3 +525,50 @@ GRANT EXECUTE ON FUNCTION update_livestock_revision(UUID, UUID, BIGINT, VARCHAR)
 GRANT EXECUTE ON FUNCTION insert_financial_ledger(UUID, VARCHAR, VARCHAR, NUMERIC, DATE, TEXT) TO mfarm_app_user;
 GRANT EXECUTE ON FUNCTION reverse_financial_ledger(UUID, UUID, TEXT) TO mfarm_app_user;
 GRANT EXECUTE ON FUNCTION execute_client_operation(UUID, UUID, JSONB) TO mfarm_app_user;
+
+-- Secure User Registration Function (SECURITY DEFINER)
+CREATE OR REPLACE FUNCTION auth.register_user(
+    p_email VARCHAR,
+    p_password_hash TEXT,
+    p_full_name VARCHAR,
+    p_farm_name VARCHAR
+)
+RETURNS TABLE (
+    out_session_token UUID,
+    out_farm_id UUID,
+    out_email VARCHAR,
+    out_full_name VARCHAR
+) AS $$
+DECLARE
+    v_user_id UUID;
+    v_farm_id UUID;
+    v_session_token UUID;
+    v_expires_at TIMESTAMPTZ;
+    v_default_farm_name VARCHAR;
+BEGIN
+    IF EXISTS (SELECT 1 FROM public.users WHERE email = p_email) THEN
+        RAISE EXCEPTION 'User with this email already exists.' USING ERRCODE = '23505';
+    END IF;
+
+    INSERT INTO public.users (email, full_name, password_hash)
+    VALUES (p_email, p_full_name, p_password_hash)
+    RETURNING id INTO v_user_id;
+
+    v_default_farm_name := COALESCE(NULLIF(p_farm_name, ''), split_part(p_full_name, ' ', 1) || '''s Farm');
+    INSERT INTO public.farms (name, location, currency)
+    VALUES (v_default_farm_name, 'Default Location', 'UGX')
+    RETURNING id INTO v_farm_id;
+
+    INSERT INTO public.farm_members (farm_id, user_id, role)
+    VALUES (v_farm_id, v_user_id, 'OWNER');
+
+    v_session_token := uuid_generate_v4();
+    v_expires_at := NOW() + INTERVAL '1 hour';
+    INSERT INTO public.active_sessions (session_token, user_id, farm_id, expires_at)
+    VALUES (v_session_token, v_user_id, v_farm_id, v_expires_at);
+
+    RETURN QUERY SELECT v_session_token, v_farm_id, p_email, p_full_name;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+GRANT EXECUTE ON FUNCTION auth.register_user(VARCHAR, TEXT, VARCHAR, VARCHAR) TO mfarm_app_user;

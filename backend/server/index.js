@@ -107,7 +107,7 @@ app.post('/api/auth/login', async (req, res) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const userRes = await client.query('SELECT id, password_hash FROM users WHERE email = $1', [email]);
+      const userRes = await client.query('SELECT * FROM auth.get_user_auth_data($1)', [email]);
       if (userRes.rows.length === 0) {
         await client.query('ROLLBACK');
         client.release();
@@ -123,34 +123,26 @@ app.post('/api/auth/login', async (req, res) => {
         return res.status(401).json({ error: 'Invalid email or password' });
       }
 
-      // Find user's primary authorized farm
-      const farmRes = await client.query(
-        'SELECT farm_id FROM farm_members WHERE user_id = $1 LIMIT 1',
-        [user.id]
-      );
-      if (farmRes.rows.length === 0) {
+      if (!user.farm_id) {
         await client.query('ROLLBACK');
         client.release();
         return res.status(403).json({ error: 'User is not assigned to any farm' });
       }
-      const farmId = farmRes.rows[0].farm_id;
 
-      // Generate fresh, cryptographically secure session token
-      const sessionToken = crypto.randomUUID();
-      const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hour expiration
-
-      await client.query(
-        'INSERT INTO active_sessions (session_token, user_id, farm_id, expires_at) VALUES ($1, $2, $3, $4)',
-        [sessionToken, user.id, farmId, expiresAt]
+      // Generate session using SECURITY DEFINER function
+      const sessionRes = await client.query(
+        'SELECT auth.create_session($1, $2) AS session_token',
+        [user.user_id, user.farm_id]
       );
+      const sessionToken = sessionRes.rows[0].session_token;
 
       await client.query('COMMIT');
       client.release();
 
-      console.log(`[AUTH] Successful login for user ${email}. Issued session token [REDACTED].`);
+      console.log(`[AUTH] Successful login for user ${email}.`);
       res.json({
         token: sessionToken,
-        farm_id: farmId,
+        farm_id: user.farm_id,
         email: email
       });
     } catch (innerErr) {
@@ -164,6 +156,59 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Secure Registration Endpoint: allows new users to create an account and default farm
+app.post('/api/auth/register', async (req, res) => {
+  const { email, password, full_name, farm_name } = req.body;
+  if (!email || !password || !full_name) {
+    return res.status(400).json({ error: 'Email, password, and full name are required' });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+  }
+
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Hash password securely with PBKDF2
+      const salt = crypto.randomBytes(16).toString('hex');
+      const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+      const passwordHash = `${salt}:${hash}`;
+
+      // Call secure SECURITY DEFINER function auth.register_user
+      const regRes = await client.query(
+        'SELECT * FROM auth.register_user($1, $2, $3, $4)',
+        [email, passwordHash, full_name, farm_name || null]
+      );
+
+      const regData = regRes.rows[0];
+
+      await client.query('COMMIT');
+      client.release();
+
+      console.log(`[AUTH] Successful registration and login for new user ${email}.`);
+      res.status(201).json({
+        token: regData.out_session_token,
+        farm_id: regData.out_farm_id,
+        email: regData.out_email,
+        full_name: regData.out_full_name
+      });
+    } catch (innerErr) {
+      await client.query('ROLLBACK').catch(() => {});
+      client.release();
+      if (innerErr.code === '23505' || innerErr.message.includes('already exists')) {
+        return res.status(409).json({ error: 'User with this email already exists' });
+      }
+      throw innerErr;
+    }
+  } catch (err) {
+    console.error('Registration error:', err.message);
+    res.status(500).json({ error: 'Registration failed: ' + err.message });
+  }
+});
+
 // Logout endpoint: revokes session token
 app.post('/api/auth/logout', async (req, res) => {
   const authHeader = req.headers.authorization;
@@ -172,7 +217,7 @@ app.post('/api/auth/logout', async (req, res) => {
   }
   const token = authHeader.split(' ')[1];
   try {
-    await pool.query('DELETE FROM active_sessions WHERE session_token = $1', [token]);
+    await pool.query('SELECT auth.revoke_session($1)', [token]);
     res.json({ status: 'success', message: 'Logged out successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
@@ -190,22 +235,13 @@ app.get('/api/farms', async (req, res) => {
   try {
     const client = await pool.connect();
     try {
-      const userRes = await client.query(
-        'SELECT user_id, farm_id FROM active_sessions WHERE session_token = $1 AND expires_at > NOW()',
+      const farmsRes = await client.query(
+        'SELECT * FROM auth.get_user_farms($1)',
         [token]
       );
-      if (userRes.rows.length === 0) {
+      if (farmsRes.rows.length === 0) {
         return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
       }
-      const userId = userRes.rows[0].user_id;
-
-      const farmsRes = await client.query(
-        `SELECT f.id, f.name, f.location, f.currency, fm.role
-         FROM farms f
-         JOIN farm_members fm ON f.id = fm.farm_id
-         WHERE fm.user_id = $1`,
-        [userId]
-      );
       res.json({ farms: farmsRes.rows });
     } finally {
       client.release();
@@ -270,6 +306,189 @@ app.get('/api/financials', withAuthenticatedClient, async (req, res) => {
     await req.dbClient.query('ROLLBACK').catch(() => {});
     req.dbClient.release();
     res.status(500).json({ error: 'Internal server error during financials retrieval' });
+  }
+});
+
+// Protected POST /api/financials
+app.post('/api/financials', withAuthenticatedClient, async (req, res) => {
+  const { entry_type, category, amount, entry_date, notes } = req.body;
+  if (!entry_type || !category || amount === undefined) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    return res.status(400).json({ error: 'Missing entry_type, category, or amount' });
+  }
+  try {
+    const resId = await req.dbClient.query(
+      'SELECT insert_financial_ledger($1, $2, $3, $4, $5, $6)',
+      [req.farmId, entry_type, category, amount, entry_date || null, notes || null]
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.status(201).json({ status: 'success', global_id: resId.rows[0].insert_financial_ledger });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Protected GET /api/milk
+app.get('/api/milk', withAuthenticatedClient, async (req, res) => {
+  try {
+    const result = await req.dbClient.query(
+      'SELECT id, livestock_tag, litres, shift, recorded_date, notes FROM milk_production WHERE farm_id = $1 ORDER BY recorded_date DESC',
+      [req.farmId]
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.json({ milk: result.rows });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Protected POST /api/milk
+app.post('/api/milk', withAuthenticatedClient, async (req, res) => {
+  const { tag, litres, shift, date, notes } = req.body;
+  if (!tag || litres === undefined) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    return res.status(400).json({ error: 'Missing tag or litres' });
+  }
+  try {
+    const resId = await req.dbClient.query(
+      'SELECT auth.add_milk_entry($1, $2, $3, $4, $5, $6)',
+      [req.farmId, tag, litres, shift || 'MORNING', date || null, notes || null]
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.status(201).json({ status: 'success', id: resId.rows[0].add_milk_entry });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Protected GET /api/breeding
+app.get('/api/breeding', withAuthenticatedClient, async (req, res) => {
+  try {
+    const result = await req.dbClient.query(
+      'SELECT id, livestock_tag, sire_tag, mating_date, expected_calving_date, status, notes FROM breeding_records WHERE farm_id = $1 ORDER BY mating_date DESC',
+      [req.farmId]
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.json({ breeding: result.rows });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Protected POST /api/breeding
+app.post('/api/breeding', withAuthenticatedClient, async (req, res) => {
+  const { tag, sire_tag, mating_date, notes } = req.body;
+  if (!tag || !mating_date) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    return res.status(400).json({ error: 'Missing tag or mating_date' });
+  }
+  try {
+    const resId = await req.dbClient.query(
+      'SELECT auth.add_breeding_entry($1, $2, $3, $4, $5)',
+      [req.farmId, tag, sire_tag || null, mating_date, notes || null]
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.status(201).json({ status: 'success', id: resId.rows[0].add_breeding_entry });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Protected GET /api/health-records
+app.get('/api/health-records', withAuthenticatedClient, async (req, res) => {
+  try {
+    const result = await req.dbClient.query(
+      'SELECT id, livestock_tag, record_type, disease_name, symptoms, diagnosis, treatment, cost, vet_name, record_date FROM health_records WHERE farm_id = $1 ORDER BY record_date DESC',
+      [req.farmId]
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.json({ health: result.rows });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Protected POST /api/health-records
+app.post('/api/health-records', withAuthenticatedClient, async (req, res) => {
+  const { tag, record_type, disease_name, symptoms, diagnosis, treatment, cost, vet_name, record_date } = req.body;
+  if (!tag) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    return res.status(400).json({ error: 'Missing tag' });
+  }
+  try {
+    const resId = await req.dbClient.query(
+      'SELECT auth.add_health_record($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+      [req.farmId, tag, record_type || 'ILLNESS', disease_name || null, symptoms || null, diagnosis || null, treatment || null, cost || 0, vet_name || null, record_date || null]
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.status(201).json({ status: 'success', id: resId.rows[0].add_health_record });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Protected GET /api/inventory
+app.get('/api/inventory', withAuthenticatedClient, async (req, res) => {
+  try {
+    const result = await req.dbClient.query(
+      'SELECT id, item_name, category, quantity, unit, min_quantity FROM inventory WHERE farm_id = $1 ORDER BY item_name',
+      [req.farmId]
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.json({ inventory: result.rows });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Protected POST /api/inventory
+app.post('/api/inventory', withAuthenticatedClient, async (req, res) => {
+  const { item_name, category, quantity, unit, min_quantity } = req.body;
+  if (!item_name || !category) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    return res.status(400).json({ error: 'Missing item_name or category' });
+  }
+  try {
+    const resId = await req.dbClient.query(
+      'SELECT auth.add_inventory_item($1, $2, $3, $4, $5, $6)',
+      [req.farmId, item_name, category, quantity || 0, unit || 'KG', min_quantity || 10]
+    );
+    await req.dbClient.query('COMMIT');
+    req.dbClient.release();
+    res.status(201).json({ status: 'success', id: resId.rows[0].add_inventory_item });
+  } catch (err) {
+    await req.dbClient.query('ROLLBACK').catch(() => {});
+    req.dbClient.release();
+    res.status(400).json({ error: err.message });
   }
 });
 
