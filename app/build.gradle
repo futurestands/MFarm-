@@ -12,6 +12,10 @@ android {
     namespace 'dev.mfarm.com.mfarm'
     compileSdk 33
 
+    useLibrary 'android.test.runner'
+    useLibrary 'android.test.base'
+    useLibrary 'android.test.mock'
+
     defaultConfig {
         applicationId "dev.mfarm.com.mfarm"
         minSdk 21

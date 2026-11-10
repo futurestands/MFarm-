@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Sprout, Lock, Mail, User, Building, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { loginWithFirebase, registerWithFirebase } from '../services/firebaseAuth';
 
 interface LoginPageProps {
   onLoginSuccess: (token: string, email: string) => void;
@@ -20,32 +21,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setError('');
 
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4001/api';
-      const endpoint = isRegistering
-        ? `${API_BASE_URL}/auth/register`
-        : `${API_BASE_URL}/auth/login`;
-
-      const payload = isRegistering
-        ? { full_name: fullName, email, password, farm_name: farmName || undefined }
-        : { email, password };
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || (isRegistering ? 'Registration failed' : 'Authentication failed against MFarm API'));
+      if (isRegistering) {
+        const res = await registerWithFirebase(email, password, fullName, farmName);
+        setIsLoading(false);
+        onLoginSuccess(res.token, res.email);
+      } else {
+        const res = await loginWithFirebase(email, password);
+        setIsLoading(false);
+        onLoginSuccess(res.token, res.email);
       }
-
-      const data = await response.json();
-      setIsLoading(false);
-      onLoginSuccess(data.token, data.email);
     } catch (err: any) {
       setIsLoading(false);
-      setError(err.message || 'Unable to connect to MFarm backend API');
+      setError(err.message || 'Firebase Authentication failed');
     }
   };
 
@@ -59,7 +46,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
           <h1 className="text-2xl font-bold">MFarm Platform</h1>
           <p className="text-emerald-200 text-sm mt-1">
-            {isRegistering ? 'Create Your Farm Account' : 'PostgreSQL Authenticated Backend'}
+            {isRegistering ? 'Create Your Farm Account' : 'Firebase Cloud Authenticated Backend'}
           </p>
         </div>
 
@@ -153,7 +140,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>
-                <span>{isRegistering ? 'Register & Create Farm' : 'Sign In to MFarm API'}</span>
+                <span>{isRegistering ? 'Register & Create Farm' : 'Sign In with Firebase'}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
