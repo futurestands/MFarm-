@@ -19,6 +19,7 @@ import androidx.core.content.FileProvider;
 
 import java.io.File;
 
+import dev.mfarm.com.mfarm.sync.CloudSyncManager;
 import dev.mfarm.com.mfarm.sync.FarmIdentity;
 import dev.mfarm.com.mfarm.sync.FarmNetwork;
 import dev.mfarm.com.mfarm.sync.FarmSyncManager;
@@ -31,6 +32,7 @@ public class FarmSyncActivity extends AppCompatActivity {
     private TextView tvStatus;
     private TextView tvFarm;
     private TextView tvCode;
+    private TextView tvCloudStatus;
     private Button btnCreate;
     private Button btnJoin;
     private Button btnShareCode;
@@ -38,6 +40,10 @@ public class FarmSyncActivity extends AppCompatActivity {
     private Button btnImport;
     private Button btnFolder;
     private Button btnSyncNow;
+    private Button btnCloudLogin;
+    private Button btnCloudRegister;
+    private Button btnCloudSync;
+    private Button btnCloudLogout;
     private String pendingJoinCode;
 
     @Override
@@ -54,6 +60,7 @@ public class FarmSyncActivity extends AppCompatActivity {
         tvStatus = findViewById(R.id.tvSyncStatus);
         tvFarm = findViewById(R.id.tvFarmName);
         tvCode = findViewById(R.id.tvJoinCode);
+        tvCloudStatus = findViewById(R.id.tvCloudStatus);
         btnCreate = findViewById(R.id.btnCreateFarm);
         btnJoin = findViewById(R.id.btnJoinFarm);
         btnShareCode = findViewById(R.id.btnShareCode);
@@ -61,6 +68,10 @@ public class FarmSyncActivity extends AppCompatActivity {
         btnImport = findViewById(R.id.btnImportBackup);
         btnFolder = findViewById(R.id.btnPickFolder);
         btnSyncNow = findViewById(R.id.btnSyncNow);
+        btnCloudLogin = findViewById(R.id.btnCloudLogin);
+        btnCloudRegister = findViewById(R.id.btnCloudRegister);
+        btnCloudSync = findViewById(R.id.btnCloudSync);
+        btnCloudLogout = findViewById(R.id.btnCloudLogout);
 
         btnCreate.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -113,6 +124,31 @@ public class FarmSyncActivity extends AppCompatActivity {
             }
         });
 
+        btnCloudLogin.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                promptCloudLogin();
+            }
+        });
+        btnCloudRegister.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                promptCloudRegister();
+            }
+        });
+        btnCloudSync.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                runCloudSync();
+            }
+        });
+        btnCloudLogout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                cloudLogout();
+            }
+        });
+
         refresh();
     }
 
@@ -138,6 +174,172 @@ public class FarmSyncActivity extends AppCompatActivity {
             tvFarm.setText(identity.farmName + " · you are the " + identity.role);
             tvCode.setText(FarmIdentity.formatJoinCode(identity.joinCode));
         }
+
+        boolean loggedIn = CloudSyncManager.isLoggedIn(this);
+        if (loggedIn) {
+            tvCloudStatus.setText("Signed in as: " + CloudSyncManager.getEmail(this));
+            btnCloudLogin.setVisibility(View.GONE);
+            btnCloudRegister.setVisibility(View.GONE);
+            btnCloudSync.setVisibility(View.VISIBLE);
+            btnCloudLogout.setVisibility(View.VISIBLE);
+        } else {
+            tvCloudStatus.setText("Not signed in to MFarm Cloud (Web synchronization requires sign-in)");
+            btnCloudLogin.setVisibility(View.VISIBLE);
+            btnCloudRegister.setVisibility(View.VISIBLE);
+            btnCloudSync.setVisibility(View.GONE);
+            btnCloudLogout.setVisibility(View.GONE);
+        }
+    }
+
+    private void promptCloudLogin() {
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.setPadding(32, 32, 32, 32);
+
+        final EditText etEmail = new EditText(this);
+        etEmail.setHint("Email address");
+        layout.addView(etEmail);
+
+        final EditText etPassword = new EditText(this);
+        etPassword.setHint("Password");
+        etPassword.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        layout.addView(etPassword);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Sign in to MFarm Web Cloud")
+                .setView(layout)
+                .setPositiveButton("Sign In", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        final String email = etEmail.getText().toString().trim();
+                        final String password = etPassword.getText().toString();
+                        if (email.isEmpty() || password.isEmpty()) {
+                            Toast.makeText(FarmSyncActivity.this, "Email and password are required", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    CloudSyncManager.login(FarmSyncActivity.this, email, password);
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            Toast.makeText(FarmSyncActivity.this, "Signed in successfully to MFarm Cloud!", Toast.LENGTH_LONG).show();
+                                            refresh();
+                                        }
+                                    });
+                                } catch (final Exception e) {
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            Toast.makeText(FarmSyncActivity.this, "Login failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                                        }
+                                    });
+                                }
+                            }
+                        }).start();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void promptCloudRegister() {
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.setPadding(32, 32, 32, 32);
+
+        final EditText etEmail = new EditText(this);
+        etEmail.setHint("Email address");
+        layout.addView(etEmail);
+
+        final EditText etPassword = new EditText(this);
+        etPassword.setHint("Password (min 6 chars)");
+        etPassword.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        layout.addView(etPassword);
+
+        final EditText etName = new EditText(this);
+        etName.setHint("Full Name");
+        layout.addView(etName);
+
+        final EditText etFarm = new EditText(this);
+        etFarm.setHint("Farm Name (optional)");
+        layout.addView(etFarm);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Create Cloud Account")
+                .setView(layout)
+                .setPositiveButton("Register", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        final String email = etEmail.getText().toString().trim();
+                        final String password = etPassword.getText().toString();
+                        final String name = etName.getText().toString().trim();
+                        final String farm = etFarm.getText().toString().trim();
+                        if (email.isEmpty() || password.isEmpty() || name.isEmpty()) {
+                            Toast.makeText(FarmSyncActivity.this, "Email, password, and name are required", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    CloudSyncManager.register(FarmSyncActivity.this, email, password, name, farm);
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            Toast.makeText(FarmSyncActivity.this, "Cloud account created & signed in!", Toast.LENGTH_LONG).show();
+                                            refresh();
+                                        }
+                                    });
+                                } catch (final Exception e) {
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            Toast.makeText(FarmSyncActivity.this, "Registration failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                                        }
+                                    });
+                                }
+                            }
+                        }).start();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void runCloudSync() {
+        tvStatus.setText("Syncing with MFarm Cloud Backend…");
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    final String msg = CloudSyncManager.syncWithCloud(FarmSyncActivity.this);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(FarmSyncActivity.this, msg, Toast.LENGTH_LONG).show();
+                            refresh();
+                        }
+                    });
+                } catch (final Exception e) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(FarmSyncActivity.this, "Cloud Sync Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                            refresh();
+                        }
+                    });
+                }
+            }
+        }).start();
+    }
+
+    private void cloudLogout() {
+        CloudSyncManager.logout(this);
+        Toast.makeText(this, "Signed out of MFarm Cloud", Toast.LENGTH_SHORT).show();
+        refresh();
     }
 
     private void promptCreateFarm() {

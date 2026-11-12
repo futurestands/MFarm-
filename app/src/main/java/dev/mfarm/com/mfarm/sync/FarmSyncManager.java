@@ -22,6 +22,15 @@ public final class FarmSyncManager {
     private FarmSyncManager() {}
 
     public static synchronized String autoSync(Context context) {
+        if (CloudSyncManager.isLoggedIn(context)) {
+            try {
+                CloudSyncManager.syncWithCloud(context);
+                Log.i(TAG, "Cloud auto-sync completed successfully.");
+            } catch (Exception e) {
+                Log.w(TAG, "Cloud auto-sync failed: " + e.getMessage());
+            }
+        }
+
         if (!FarmIdentity.isSet(context)) {
             return "Solo phone — records stay on this device until you set up Farm Sync.";
         }

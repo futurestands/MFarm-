@@ -110,6 +110,53 @@
                 android:layout_height="wrap_content"
                 android:text="Sync now" />
 
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                android:background="#CCCCCC" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="MFarm Web Cloud Integration"
+                android:textStyle="bold"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tvCloudStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Not signed in to MFarm Cloud"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnCloudLogin"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Sign in to Web Cloud" />
+
+            <Button
+                android:id="@+id/btnCloudRegister"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Create Cloud Account" />
+
+            <Button
+                android:id="@+id/btnCloudSync"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Sync with Web Cloud" />
+
+            <Button
+                android:id="@+id/btnCloudLogout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Sign out of Cloud" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
